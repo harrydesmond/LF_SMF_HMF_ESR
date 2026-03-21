@@ -623,7 +623,8 @@ def create_all_plots(zipped, hmf_sims):
 
     # Add function list to ax2
     for idx, row in enumerate(ordered_gold):
-        text_fcn = py2tex(row[-1].replace('Abs','abs')).replace('$','').replace(' ','')           
+        text_fcn = py2tex(row[-1].replace('Abs','abs')).replace('$','').replace(' ','')
+        text_fcn = text_fcn.replace('\\log', '\\ln')
 
         if r'e^{a0-{\frac{|a1|}{x}}^{a2-x}}' in text_fcn:
             text_fcn = text_fcn.replace(r'e^{a0-{\frac{|a1|}{x}}^{a2-x}}', r'e^{a0-\left({\frac{|a1|}{x}}\right)^{\left(a2-x\right)}}')

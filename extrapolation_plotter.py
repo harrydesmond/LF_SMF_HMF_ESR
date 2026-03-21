@@ -201,7 +201,7 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
     if plot_xlim is not None:
         ax.set_xlim(*plot_xlim)
     ax.set_xlabel(xlabel, fontsize=12)
-    ax.set_ylabel(r'$\log_{10}\!\left(\phi\right)$', fontsize=12)
+    ax.set_ylabel(r'$\log\!\left(\phi\right)$', fontsize=12)
     ax.tick_params(labelsize=10)
     ax.text(0.05, 0.95, title, transform=ax.transAxes, fontsize=13,
             va='top', ha='left', fontweight='bold')
@@ -254,13 +254,13 @@ if __name__ == '__main__':
     plot_extrapolation(
         'LF_Ser_L', axes[0, 0],
         title='LF: Sersic',
-        xlabel=r'$\log_{10}(L\,/\,L_\odot)$',
+        xlabel=r'$\log(L\,/\,L_\odot)$',
         x_extrap_range=(1e-4, 1e8),
         lit_keys=['Sch', 'Ber'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
-    axes[0, 0].set_ylabel(r'$\log_{10}\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=12)
+    axes[0, 0].set_ylabel(r'$\log\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=12)
 
     # Share y-axis for row 1
     axes[0, 1].sharey(axes[0, 0])
@@ -269,7 +269,7 @@ if __name__ == '__main__':
     plot_extrapolation(
         'LF_cmodel_L', axes[0, 1],
         title='LF: cmodel',
-        xlabel=r'$\log_{10}(L\,/\,L_\odot)$',
+        xlabel=r'$\log(L\,/\,L_\odot)$',
         x_extrap_range=(1e-4, 1e8),
         lit_keys=['Sch', 'Ber'],
         plot_xlim=(5, 16),
@@ -282,13 +282,13 @@ if __name__ == '__main__':
     plot_extrapolation(
         'SMF_Ser_M', axes[1, 0],
         title='SMF: Sersic',
-        xlabel=r'$\log_{10}(M_\star\,/\,M_\odot)$',
+        xlabel=r'$\log(M_\star\,/\,M_\odot)$',
         x_extrap_range=(1e-4, 1e9),
         lit_keys=['Sch', 'Ber'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
-    axes[1, 0].set_ylabel(r'$\log_{10}\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=12)
+    axes[1, 0].set_ylabel(r'$\log\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=12)
 
     # Share y-axis for row 2
     axes[1, 1].sharey(axes[1, 0])
@@ -297,7 +297,7 @@ if __name__ == '__main__':
     plot_extrapolation(
         'SMF_cmodel_M', axes[1, 1],
         title='SMF: cmodel',
-        xlabel=r'$\log_{10}(M_\star\,/\,M_\odot)$',
+        xlabel=r'$\log(M_\star\,/\,M_\odot)$',
         x_extrap_range=(1e-4, 1e9),
         lit_keys=['Sch', 'Ber'],
         plot_xlim=(5, 16),
@@ -311,19 +311,19 @@ if __name__ == '__main__':
     plot_extrapolation(
         'hmf_50', axes[2, 0],
         title='HMF',
-        xlabel=r'$\log_{10}(M_h\,/\,M_\odot)$',
+        xlabel=r'$\log(M_h\,/\,M_\odot)$',
         x_extrap_range=(8, 20),
         is_hmf=True,
         inset_xlim=(8, 12.5),
         lit_keys=['P.Sch.', 'War.', 'Tin.', 'Ber.'],
         plot_xlim=(8, 17),
     )
-    axes[2, 0].set_ylabel(r'$\log_{10}\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=12)
+    axes[2, 0].set_ylabel(r'$\log\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=12)
 
     # HMF vs sigma
     plot_hmf_sigma(axes[2, 1])
     axes[2, 1].set_xlabel(r'$\sigma$', fontsize=12)
-    axes[2, 1].set_ylabel(r'$\log_{10}\!\left(f(\sigma)\right)$', fontsize=12)
+    axes[2, 1].set_ylabel(r'$\log\!\left(f(\sigma)\right)$', fontsize=12)
     axes[2, 1].yaxis.set_label_position('right')
     axes[2, 1].yaxis.tick_right()
     axes[2, 1].tick_params(labelsize=10)

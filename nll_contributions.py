@@ -112,6 +112,7 @@ def main(data_set, colour, found):
 
     for idx, fcn in enumerate(plot_fcn):
         label = py2tex(blank_fcn[idx].replace('Abs','abs')).replace('$','').replace('a0','\Theta_0').replace('a1','\Theta_1').replace('a2','\Theta_2').replace('a3','\Theta_3').replace('x',x_label)
+        label = label.replace('\\log', '\\ln')
         label = r'${}$'.format(label)
                 
         y_fcn = eval(fcn.replace("log","np.log").replace("Abs","abs").replace("exp","np.exp"))

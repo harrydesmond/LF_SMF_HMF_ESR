@@ -101,7 +101,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots(figsize=(8, 6))
     plot_hmf_sigma(ax)
     ax.set_xlabel(r'$\sigma$', fontsize=14)
-    ax.set_ylabel(r'$\log_{10}\!\left(f(\sigma)\right)$', fontsize=12)
+    ax.set_ylabel(r'$\log\!\left(f(\sigma)\right)$', fontsize=12)
     ax.tick_params(labelsize=11)
     ax.legend(fontsize=10, loc='upper right')
     ax.set_title('HMF extrapolation', fontsize=13, fontweight='bold')
