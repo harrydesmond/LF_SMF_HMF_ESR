@@ -45,8 +45,8 @@ Each file has 4 space-delimited columns:
 | Column | LF | SMF | Units |
 |--------|----|-----|-------|
 | 1 | x = L / (10^9 L_sun) | x = M_* / (10^9 M_sun) | ESR fitting variable |
-| 2 | log10(phi) | log10(phi) | Mpc^-3 dex^-1 |
-| 3 | sigma(log10 phi) | sigma(log10 phi) | Poisson uncertainty |
+| 2 | log(phi) | log(phi) | Mpc^-3 dex^-1 |
+| 3 | sigma(log phi) | sigma(log phi) | Poisson uncertainty |
 | 4 | V_eff | V_eff | Mpc^3 |
 
 Column 1 is the ESR variable `x` that appears directly in all fitted functions. The original Bernardi et al. data has been pre-converted to these units.
@@ -61,11 +61,11 @@ Halo mass functions from 100 realisations of the [Quijote](https://quijote-simul
 |--------|------|-------------|
 | 1 | x = sigma | Mass variance (ESR fitting variable) |
 | 2 | counts | Halo counts in this mass bin |
-| 3 | \|d ln sigma / d log M\| | Derivative factor |
+| 3 | \|d ln sigma / d log M\| | Derivative factor (`log` is base-10) |
 | 4 | norm | = \|d ln sigma / d log M\| * (rho_m / M) * V_eff * d(log M) |
-| 5 | log10(M / (M_sun/h)) | Halo mass bin centre |
+| 5 | log(M / (M_sun/h)) | Halo mass bin centre |
 
-- `data/mass_variance_multiplier.txt`: mapping between halo mass and mass variance (3 columns: log10(M/(M_sun/h)), sigma, \|d ln sigma / d log M\| * (rho_m/M) / V_eff).
+- `data/mass_variance_multiplier.txt`: mapping between halo mass and mass variance (3 columns: log(M/(M_sun/h)), sigma, \|d ln sigma / d log M\| * (rho_m/M) / V_eff).
 
 The ESR variable `x` for the HMF is `sigma`. The fitted quantity is the multiplicity function f(sigma), related to the number density n(M) via n(M) d(log M) = f(sigma) * (rho_m / M) * |d(ln sigma)|.
 

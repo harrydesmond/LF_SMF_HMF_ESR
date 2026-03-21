@@ -198,19 +198,19 @@ def main(data_set, colour, found):
     
     # LF axes
     if 'LF' in data_set:
-        ax[0].set_xlabel('Log' + r'$\left( \frac{L}{L_\odot} \right) $' )
+        ax[0].set_xlabel(r'$\log\!\left( \frac{L}{L_\odot} \right)$')
         ax[0].set_ylabel(r'$\delta$' + ' NLL Contributions')
         ax[0].legend(new_handles, labels, fontsize=8, title='LF Model Comparisons:')
 
     # SMF axes
     elif 'SMF' in data_set:
-        ax[0].set_xlabel('Log' + r'$\left( \frac{M_*}{h M_\odot} \right) $' )
+        ax[0].set_xlabel(r'$\log\!\left( \frac{M_*}{h M_\odot} \right)$')
         ax[0].set_ylabel(r'$\delta$' + ' NLL Contributions')
         ax[0].legend(new_handles, labels, fontsize=8, title='SMF Model Comparisons:')
         
     # HMF axes
     else:
-        ax[0].set_xlabel('Log(M) [Msun/h]') #'Log' + r'$\left( \frac{M_*}{h M_\odot} \right) $' )
+        ax[0].set_xlabel(r'$\log(M)\,[\mathrm{M_\odot}/h]$')
         ax[0].set_ylabel(r'$\delta$' + ' NLL Contributions')
         ax[0].legend(fontsize=8, title='HMF Model Comparisons:', loc=(0.1, 0.55))
     
