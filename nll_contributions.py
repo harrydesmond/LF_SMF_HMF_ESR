@@ -47,9 +47,9 @@ def main(data_set, colour, found):
     
     # HMF
     if 'hmf' in data_set:
-        _, counts, y_err, Veff_factor_delta, _ = np.loadtxt('{}_new.txt'.format(data_set), dtype=float, delimiter=' ', unpack=True)
+        _, counts, y_err, Veff_factor_delta, _ = np.loadtxt('data/hmf_files/{}.dat'.format(data_set), dtype=float, delimiter=' ', unpack=True)
         # M = x
-        logM, sigma, factor = np.loadtxt('mass_variance_multiplier.txt', dtype=float, unpack=True)
+        logM, sigma, factor = np.loadtxt('data/mass_variance_multiplier.txt', dtype=float, unpack=True)
         # NOTE: logM is [Msun/h]
         logM = logM[:len(counts)]
         sigma = sigma[:len(counts)]
@@ -75,13 +75,13 @@ def main(data_set, colour, found):
       
     # LF or SMF
     else:
-        data_file = '{}.txt'.format(data_set)
+        data_file = 'data/{}.txt'.format(data_set)
         if not os.path.isfile(data_file):
             # Some LF/SMF datasets use *_L / *_M names for fit outputs but keep
             # raw binned data in the base file (e.g., LF_cmodel.txt).
             for suffix in ('_L', '_M'):
                 if data_set.endswith(suffix):
-                    alt = '{}.txt'.format(data_set[:-2])
+                    alt = 'data/{}.txt'.format(data_set[:-2])
                     if os.path.isfile(alt):
                         data_file = alt
                     break

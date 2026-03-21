@@ -13,8 +13,10 @@ import os
 
 M_sun_r = 4.67  # Solar absolute magnitude in r-band
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
 # Read the 4-column plotting file (already has V_eff)
-data = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'LF_cmodel.txt'))
+data = np.loadtxt(os.path.join(script_dir, 'data', 'LF_cmodel.txt'))
 M_abs = data[:, 0]
 log_phi = data[:, 1]
 sigma = data[:, 2]
@@ -29,9 +31,8 @@ print(f"  L [L_sun]: {L.min():.4e} to {L.max():.4e}")
 print(f"  log10(phi): {log_phi.min():.3f} to {log_phi.max():.3f}")
 print(f"  V_eff [Mpc^3]: {V_eff.min():.4e} to {V_eff.max():.4e}")
 
-# Save 4-column ESR data file
-outdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'LF_and_SMF_data')
-os.makedirs(outdir, exist_ok=True)
+# Save 4-column ESR data file (for use by fit_all.py on the cluster)
+outdir = os.path.join(script_dir, 'data')
 outfile = os.path.join(outdir, 'LF_cmodel_L.dat')
 np.savetxt(outfile, np.column_stack([L, log_phi, sigma, V_eff]), fmt='%.18e')
 print(f"Saved {outfile}")

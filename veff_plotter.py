@@ -10,7 +10,7 @@ Figures produced:
     - Final_Plots/Veff.pdf      (combined 1x2 figure)
 
 Inputs:
-    - LF_Ser_L.txt, LF_cmodel.txt, SMF_Ser_M.txt, SMF_cmodel_M.txt
+    - data/LF_Ser_L.txt, data/LF_cmodel.txt, data/SMF_Ser_M.txt, data/SMF_cmodel_M.txt
       (4-column data: x, log10(phi), sigma, Veff)
 
 Dependencies:
@@ -21,10 +21,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 # LF data: columns are L (L_sun), log10(phi), sigma, Veff
-LF_Ser = np.loadtxt('LF_Ser_L.txt', dtype=float, delimiter=' ')
-LF_cmod = np.loadtxt('LF_cmodel.txt', dtype=float, delimiter=' ')
-SMF_Ser = np.loadtxt('SMF_Ser_M.txt', dtype=float, delimiter=' ')
-SMF_cmod = np.loadtxt('SMF_cmodel_M.txt', dtype=float, delimiter=' ')
+LF_Ser = np.loadtxt('data/LF_Ser_L.txt', dtype=float, delimiter=' ')
+LF_cmod = np.loadtxt('data/LF_cmodel.txt', dtype=float, delimiter=' ')
+SMF_Ser = np.loadtxt('data/SMF_Ser_M.txt', dtype=float, delimiter=' ')
+SMF_cmod = np.loadtxt('data/SMF_cmodel_M.txt', dtype=float, delimiter=' ')
 
 # LF panel (standalone)
 fig_lf, ax_lf = plt.subplots(1, 1, figsize=(5, 4))

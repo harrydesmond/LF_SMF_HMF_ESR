@@ -32,9 +32,9 @@ def eval_fcn(fcn_str, x):
 
 def plot_hmf_sigma(ax):
     """Plot HMF extrapolation in sigma-space on the given axes."""
-    _, counts, _, _, _ = np.loadtxt('hmf_50_new.txt', dtype=float, unpack=True)
+    _, counts, _, _, _ = np.loadtxt('data/hmf_files/hmf_50.dat', dtype=float, unpack=True)
     logM, sigma, factor = np.loadtxt(
-        'mass_variance_multiplier.txt', dtype=float, unpack=True)
+        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
     n = len(counts)
     sigma_data = sigma[:n]
     factor_data = factor[:n]

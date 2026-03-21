@@ -111,7 +111,7 @@ def main():
     print("PART 1: Checking hmf_combined_DL.txt (top 200 functions)")
     print("=" * 80)
 
-    combined_file = '/home/harry/Amelia_code/hmf_combined_DL.txt'
+    combined_file = 'hmf_combined_DL.txt'
     with open(combined_file) as fh:
         lines = fh.readlines()
 
@@ -122,7 +122,7 @@ def main():
 
     sims = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
     for sim in sims:
-        filepath = f'/home/harry/Amelia_code/hmf_data/hmf_{sim}_data/final_all.txt'
+        filepath = f'hmf_data/hmf_{sim}_data/final_all.txt'
         try:
             with open(filepath) as fh:
                 sim_lines = fh.readlines()
@@ -222,7 +222,7 @@ def main():
     ps_like_all = {}  # func_str -> list of (sim, params, dl, nll, details)
 
     for sim in sims:
-        filepath = f'/home/harry/Amelia_code/hmf_data/hmf_{sim}_data/final_all.txt'
+        filepath = f'hmf_data/hmf_{sim}_data/final_all.txt'
         try:
             with open(filepath) as fh:
                 sim_lines = fh.readlines()

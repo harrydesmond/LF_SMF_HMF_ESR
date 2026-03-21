@@ -19,8 +19,8 @@ Arguments:
     complexity  Integer complexity for ESR (typically 3-10).
 
 Inputs:
-    - LF/SMF data: LF_and_SMF_data/<dataset>.dat  (4 columns: x, log10(phi), sigma, Veff)
-    - HMF data:    hmf_files/hmf_<sim>.dat     (5 columns: logM, counts, ...)
+    - LF/SMF data: data/<dataset>.dat  (4 columns: x, log10(phi), sigma, Veff)
+    - HMF data:    data/hmf_files/hmf_<sim>.dat  (5 columns: sigma, counts, ...)
     - ESR function libraries: equation_<basis>_<comp>.txt files
 
 Outputs:
@@ -577,7 +577,7 @@ def run_hmf_esr_fits(hmf_sim_val, comp):
     watchdog = MemoryWatchdog(interval=0.1)
     watchdog.start()
 
-    likelihood = PoissonLikelihood('hmf_files/hmf_{}.dat'.format(hmf_sim_val), 'poisson_example', data_dir='/mnt/zfsusers/ameliaford/original_ESR/ESR', fn_set='base_e_maths')
+    likelihood = PoissonLikelihood('data/hmf_files/hmf_{}.dat'.format(hmf_sim_val), 'poisson_example', data_dir='.', fn_set='base_e_maths')
 #    esr.generation.duplicate_checker.main(runname, comp)
     _patched_test_all_main(comp, likelihood, ignore_previous_eqns=True)
     flush_memory("test_all")
@@ -598,16 +598,17 @@ def run_hmf_esr_fits(hmf_sim_val, comp):
     watchdog.stop()
         
 # --- Run fits on SMF or LF data --- #
-def run_galaxy_esr_fits(sim_name, comp, data_dir='/mnt/zfsusers/ameliaford/original_ESR/ESR'):
+def run_galaxy_esr_fits(sim_name, comp, data_dir='.'):
 
     watchdog = MemoryWatchdog(interval=0.1, constant_update=False)
     watchdog.start()
 
-    likelihood = PoissonLikelihood('LF_and_SMF_data/{}.dat'.format(sim_name), 'poisson_example', data_dir=data_dir, fn_set='base_e_maths')
+    likelihood = PoissonLikelihood('data/{}.dat'.format(sim_name), 'poisson_example', data_dir=data_dir, fn_set='base_e_maths')
 #    esr.generation.duplicate_checker.main(runname, comp)
     # Redirect fn_dir to a local writable copy so ESR can write previous_eqns files
     # while still reading the equation lists from the original (read-only) location
-    amelia_fn_dir = '/mnt/zfsusers/ameliaford/original_ESR/ESR/esr/function_library/base_e_maths'
+    # Update this path to point to your ESR function library
+    amelia_fn_dir = os.path.join(data_dir, 'esr', 'function_library', 'base_e_maths')
     local_fn_dir = os.path.join(os.getcwd(), 'function_library_local', 'base_e_maths')
     if rank == 0:
         compl_dir = os.path.join(local_fn_dir, 'compl_%i' % comp)
@@ -679,7 +680,7 @@ def def_pap_eq():
 
 
 # --- Fit individual equations --- #
-def fit_str(string,basis_functions,hmf_sim,data_dir='/mnt/zfsusers/ameliaford/original_ESR/ESR'):
+def fit_str(string,basis_functions,hmf_sim,data_dir='.'):
     nparam = 0
     for i in range(0,9):
         if 'a{}'.format(i) in string:
@@ -700,10 +701,10 @@ def fit_str(string,basis_functions,hmf_sim,data_dir='/mnt/zfsusers/ameliaford/or
         raise ValueError("Nconv and/or Niter have unacceptable values")
 
     if '_' in hmf_sim:
-        likelihood = PoissonLikelihood('LF_and_SMF_data/{}.dat'.format(hmf_sim), 'poisson_example', data_dir=data_dir, fn_set='base_e_maths')
+        likelihood = PoissonLikelihood('data/{}.dat'.format(hmf_sim), 'poisson_example', data_dir=data_dir, fn_set='base_e_maths')
 
     else:
-        likelihood = PoissonLikelihood('hmf_files/hmf_{}.dat'.format(hmf_sim), 'poisson_example', data_dir=data_dir, fn_set='base_e_maths')
+        likelihood = PoissonLikelihood('data/hmf_files/hmf_{}.dat'.format(hmf_sim), 'poisson_example', data_dir=data_dir, fn_set='base_e_maths')
     
     count = 0
     done = False
@@ -744,7 +745,7 @@ def fit_str(string,basis_functions,hmf_sim,data_dir='/mnt/zfsusers/ameliaford/or
 
 
 # --- Fits paper functions ---
-def fitting_paper(hmf_sim, data_dir='/mnt/zfsusers/ameliaford/original_ESR/ESR'):
+def fitting_paper(hmf_sim, data_dir='.'):
     eq_1_str, eq_1_tree, eq_2_str, eq_2_tree,eq_3_str, eq_3_tree, eq_4_str = def_pap_eq()
     
     # ----- #
@@ -923,17 +924,17 @@ basis_functions = [["x", "a"],  # type0
 
 # --- Command-line mode selector ---
 # Usage:
-#   python3 fit_all_neater.py <dataset> esr <comp>      # ESR fits at given complexity
-#   python3 fit_all_neater.py <dataset> paper            # Paper function fits
+#   python3 fit_all.py <dataset> esr <comp>      # ESR fits at given complexity
+#   python3 fit_all.py <dataset> paper            # Paper function fits
 # If LF_and_SMF_data/<dataset>.dat exists locally (cwd), use cwd as data_dir;
 # otherwise fall back to Amelia's directory.
 if len(sys.argv) >= 3:
     mode = sys.argv[2]
-    local_data = os.path.join(os.getcwd(), 'LF_and_SMF_data', f'{hmf_sim}.dat')
+    local_data = os.path.join(os.getcwd(), 'data', f'{hmf_sim}.dat')
     if os.path.isfile(local_data):
         data_dir = os.getcwd()
     else:
-        data_dir = '/mnt/zfsusers/ameliaford/original_ESR/ESR'
+        data_dir = '.'
     if mode == 'esr':
         comp = int(sys.argv[3])
         if '_' in hmf_sim:
@@ -948,7 +949,7 @@ if len(sys.argv) >= 3:
         if size != 1:
             if rank == 0:
                 print("ERROR: paper mode must be run with exactly one MPI rank/core.", flush=True)
-                print("Use: python3 fit_all_neater.py <dataset> paper", flush=True)
+                print("Use: python3 fit_all.py <dataset> paper", flush=True)
             sys.exit(2)
         if '_' in hmf_sim:
             os.makedirs(f'{hmf_sim}_data', exist_ok=True)

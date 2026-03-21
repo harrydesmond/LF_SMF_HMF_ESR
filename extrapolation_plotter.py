@@ -20,11 +20,11 @@ gamma = Gamma  # alias so eval() of Bernardi functions works
 
 def load_lf_smf(data_set):
     """Return x (in 10^9 solar units), log10(phi), y_err, and log10(M_raw)."""
-    data_file = '{}.txt'.format(data_set)
+    data_file = 'data/{}.txt'.format(data_set)
     if not os.path.isfile(data_file):
         for suffix in ('_L', '_M'):
             if data_set.endswith(suffix):
-                alt = '{}.txt'.format(data_set[:-2])
+                alt = 'data/{}.txt'.format(data_set[:-2])
                 if os.path.isfile(alt):
                     data_file = alt
                 break
@@ -42,9 +42,9 @@ def load_lf_smf(data_set):
 def load_hmf(data_set):
     """Return x (=sigma), y (=log10 number density), y_err, and logM for HMF."""
     _, counts, y_err_raw, Veff_factor_delta, _ = np.loadtxt(
-        '{}_new.txt'.format(data_set), dtype=float, unpack=True)
+        'data/hmf_files/{}.dat'.format(data_set), dtype=float, unpack=True)
     logM, sigma, factor = np.loadtxt(
-        'mass_variance_multiplier.txt', dtype=float, unpack=True)
+        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
     n = len(counts)
     logM, sigma = logM[:n], sigma[:n]
     x = sigma                                  # ESR variable
@@ -139,7 +139,7 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
         # a smooth logM evaluation grid.
         from scipy.interpolate import interp1d
         logM_all, sigma_all, factor_all = np.loadtxt(
-            'mass_variance_multiplier.txt', dtype=float, unpack=True)
+            'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
         sigma_of_logM = interp1d(logM_all, sigma_all, kind='cubic',
                                   fill_value='extrapolate')
         factor_of_logM = interp1d(logM_all, factor_all, kind='cubic',

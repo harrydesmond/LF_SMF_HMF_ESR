@@ -6,7 +6,8 @@ The ESR fits predict f(sigma) and NLL = sum(f*norm - counts*log(f*norm)).
 """
 
 import sys
-sys.path.insert(0, '/home/harry/Symbolic_regression/ESR-main/')
+# Update this path to your local ESR installation
+# sys.path.insert(0, '/path/to/ESR')
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -21,7 +22,7 @@ from esr.generation.generator import string_to_node, aifeyn_complexity
 
 
 def load_hmf_data(sim):
-    filepath = f'hmf_files/hmf_{sim}.dat'
+    filepath = f'data/hmf_files/hmf_{sim}.dat'
     data = np.loadtxt(filepath)
     return data[:, 0], data[:, 1], data[:, 3]  # sigma, counts, norm
 

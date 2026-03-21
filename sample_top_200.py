@@ -34,7 +34,8 @@ Dependencies:
 """
 
 import sys
-sys.path.insert(0, '/mnt/zfsusers/ameliaford/original_ESR/ESR')
+# Update this path to your local ESR installation
+# sys.path.insert(0, '/path/to/ESR')
 
 import numpy as np
 import os
@@ -52,7 +53,8 @@ from scipy.stats import gaussian_kde
 from esr.fitting.likelihood import PoissonLikelihood
 from esr.fitting.fit_single import fit_from_string, single_function
 
-DATA_DIR = '/users/ameliaford/original_ESR/ESR'
+# Update this to your ESR data directory (where hmf_files/ etc. are located)
+DATA_DIR = '.'
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -85,7 +87,7 @@ def fit_str(string,hmf_sim):
     if (Nconv_new <= 0) or (Niter_new <= 0) or (Nconv_new > Niter_new):
         raise ValueError("Nconv and/or Niter have unacceptable values")
 
-    likelihood = PoissonLikelihood('hmf_files/hmf_{}.dat'.format(hmf_sim), 'poisson_example', data_dir=DATA_DIR, fn_set='base_e_maths')
+    likelihood = PoissonLikelihood('data/hmf_files/hmf_{}.dat'.format(hmf_sim), 'poisson_example', data_dir=DATA_DIR, fn_set='base_e_maths')
 
     # --- Allows multiple attempts at fitting in case it fails to converge (max 20 attempts) --- #
     count = 0
