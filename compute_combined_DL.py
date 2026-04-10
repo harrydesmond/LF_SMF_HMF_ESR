@@ -13,8 +13,7 @@ using the ESR library.
 """
 
 import sys
-# Update this path to your local ESR installation
-# sys.path.insert(0, '/path/to/ESR')
+sys.path.insert(0, '/home/harry/Symbolic_regression/ESR-main/')
 
 import numpy as np
 import os

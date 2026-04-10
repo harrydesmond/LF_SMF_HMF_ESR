@@ -1,0 +1,303 @@
+"""
+Fit literature HMF functions (Press-Schechter, Warren, Tinker) to all 100 Quijote sims
+using TRIMMED data (first 2 bins removed).
+"""
+
+import sys
+sys.path.insert(0, '/home/harry/Symbolic_regression/ESR-main/')
+
+import warnings
+warnings.filterwarnings('ignore')
+
+import numpy as np
+import os
+import math
+import itertools
+from scipy.optimize import minimize
+import numdifftools as nd
+from esr.generation.generator import string_to_node, aifeyn_complexity
+
+
+def load_hmf_data_trimmed(sim):
+    filepath = f'hmf_files/hmf_{sim}_new.dat'
+    data = np.loadtxt(filepath)
+    data = data[2:]  # drop first 2 rows (lowest mass / highest sigma)
+    return data[:, 0], data[:, 1], data[:, 3]  # sigma, counts, norm
+
+
+# Literature functions
+def press_schechter(x, params=None):
+    delta_c = 1.686
+    return np.sqrt(2.0 / np.pi) * (delta_c / x) * np.exp(-0.5 * (delta_c / x)**2)
+
+def warren(x, params):
+    a0, a1, a2, a3 = params
+    return a0 * (np.power(x, a2) + a1) * np.exp(-a3 * np.power(x, -2.0))
+
+def tinker(x, params):
+    a0, a1, a2, a3 = params
+    return a0 * (np.power(x / a2, -a1) + 1.0) * np.exp(-a3 * np.power(x, -2.0))
+
+
+def poisson_nll(params, sigma, counts, norm, func):
+    f = func(sigma, params)
+    ypred = f * norm
+    if np.any(ypred <= 0) or np.any(~np.isfinite(ypred)):
+        return np.inf
+    nll = np.sum(ypred - counts * np.log(ypred))
+    if not np.isfinite(nll):
+        return np.inf
+    return nll
+
+
+def compute_codelen(params, sigma, counts, norm, func):
+    k = len(params)
+    if k == 0:
+        return 0.0
+    def nll_func(p):
+        return poisson_nll(p, sigma, counts, norm, func)
+
+    d_list = [1e-5, 10**(-5.5), 10**(-4.5), 1e-6, 1e-4, 10**(-6.5),
+              10**(-3.5), 1e-7, 1e-3, 10**(-7.5), 10**(-2.5), 1e-8, 1e-2]
+    method_list = ["central", "forward", "backward"]
+
+    Fisher_diag = None
+    try:
+        H = nd.Hessian(nll_func)(params)
+        Fisher_diag = np.array([H[i, i] for i in range(k)])
+    except Exception:
+        pass
+
+    def _is_good(Fd, p):
+        if Fd is None:
+            return False
+        if np.any(Fd <= 0) or np.any(~np.isfinite(Fd)):
+            return False
+        return True
+
+    if not _is_good(Fisher_diag, params):
+        for d2, meth in itertools.product(d_list, method_list):
+            try:
+                step = np.abs(d2 * params) + 1e-15
+                H = nd.Hessian(nll_func, step=step, method=meth)(params)
+                Fd_tmp = np.array([H[i, i] for i in range(k)])
+                if _is_good(Fd_tmp, params):
+                    Fisher_diag = Fd_tmp
+                    break
+            except Exception:
+                continue
+
+    if not _is_good(Fisher_diag, params):
+        return np.nan
+
+    Delta = np.sqrt(12.0 / Fisher_diag)
+    Nsteps = np.abs(params) / Delta
+    mask = Nsteps >= 1
+    k_eff = int(np.sum(mask))
+    if k_eff == 0:
+        return 0.0
+    codelen = (-k_eff / 2.0 * math.log(3.0)
+               + np.sum(0.5 * np.log(Fisher_diag[mask]) + np.log(np.abs(params[mask]))))
+    return codelen
+
+
+def fit_function(sigma, counts, norm, func, bounds, p0_base, n_restarts=10):
+    best_nll = np.inf
+    best_params = None
+    rng = np.random.RandomState(42)
+
+    for scale in [1.0, 0.95, 1.05, 0.9, 1.1]:
+        p0 = p0_base * scale
+        try:
+            result = minimize(poisson_nll, p0, args=(sigma, counts, norm, func),
+                              method='L-BFGS-B', bounds=bounds,
+                              options={'maxiter': 10000, 'ftol': 1e-15})
+            if result.fun < best_nll:
+                best_nll = result.fun
+                best_params = result.x.copy()
+        except Exception:
+            continue
+
+    for _ in range(n_restarts):
+        p0 = p0_base * (1 + 0.3 * rng.randn(len(p0_base)))
+        p0 = np.clip(p0, [b[0] for b in bounds], [b[1] for b in bounds])
+        try:
+            result = minimize(poisson_nll, p0, args=(sigma, counts, norm, func),
+                              method='L-BFGS-B', bounds=bounds,
+                              options={'maxiter': 10000, 'ftol': 1e-15})
+            if result.fun < best_nll:
+                best_nll = result.fun
+                best_params = result.x.copy()
+        except Exception:
+            continue
+
+    return best_nll, best_params
+
+
+basis_functions = [["x", "a"],
+                   ["inv", "exp", "log", "abs"],
+                   ["+", "*", "-", "/", "pow"]]
+
+def get_aifeynman(esr_string):
+    try:
+        expr, nodes, complexity = string_to_node(esr_string, basis_functions, evalf=True)
+        labels = nodes.to_list(basis_functions)
+        labels = [lab.lower() if lab not in ['Mul', 'Add'] else
+                  ('*' if lab == 'Mul' else '+') for lab in labels]
+        nparam = sum(1 for i in range(10) if f'a{i}' in esr_string)
+        param_list = [f'a{i}' for i in range(nparam)]
+        return aifeyn_complexity(labels, param_list)
+    except Exception as e:
+        print(f"  Warning: aifeynman failed for {esr_string[:60]}: {e}")
+        return None
+
+
+LITERATURE_FUNCTIONS = {
+    'P.Sch.': {
+        'func': press_schechter,
+        'nparam': 0,
+        'bounds': [],
+        'p0': np.array([]),
+        'esr_string': 'pow(2/3.141592,0.5)*(1.686/x)*exp(-0.5*pow(1.686/x,2))',
+    },
+    'War.': {
+        'func': warren,
+        'nparam': 4,
+        'bounds': [(0.01, 100), (-10, 10), (-5, 5), (0.01, 10)],
+        'p0': np.array([3.954, -0.851, -0.080, 0.811]),
+        'esr_string': 'a0*(pow(x,a2)+a1)*exp(-a3*pow(x,-2))',
+    },
+    'Tin.': {
+        'func': tinker,
+        'nparam': 4,
+        'bounds': [(1e-6, 10), (0.01, 5), (1, 100000), (0.01, 10)],
+        'p0': np.array([0.00234, 0.794, 1224, 0.926]),
+        'esr_string': 'a0*(pow(x/a2,-a1)+1)*exp(-a3*pow(x,-2))',
+    },
+}
+
+
+def main():
+    sim_numbers = sorted([
+        int(f.split('_')[1])
+        for f in os.listdir('hmf_files')
+        if f.startswith('hmf_') and f.endswith('_new.dat')
+    ])
+    print(f"Found {len(sim_numbers)} simulations: {sim_numbers[0]}..{sim_numbers[-1]}")
+
+    # Compute aifeynman
+    print("\nComputing aifeynman...")
+    aifeyn_values = {}
+    for name, info in LITERATURE_FUNCTIONS.items():
+        af = get_aifeynman(info['esr_string'])
+        aifeyn_values[name] = af
+        print(f"  {name}: aifeynman = {af}")
+
+    # Fit
+    print(f"\nFitting literature functions to {len(sim_numbers)} sims (TRIMMED data)...")
+    results = {name: {} for name in LITERATURE_FUNCTIONS}
+
+    for sim_idx, sim in enumerate(sim_numbers):
+        try:
+            sigma, counts, norm = load_hmf_data_trimmed(sim)
+        except Exception as e:
+            print(f"  Could not load sim {sim}: {e}")
+            continue
+
+        for name, info in LITERATURE_FUNCTIONS.items():
+            func = info['func']
+
+            if info['nparam'] == 0:
+                f = func(sigma)
+                ypred = f * norm
+                if np.any(ypred <= 0):
+                    continue
+                nll = np.sum(ypred - counts * np.log(ypred))
+                params = np.array([])
+                codelen = 0.0
+            else:
+                nll, params = fit_function(sigma, counts, norm, func,
+                                           info['bounds'], info['p0'])
+                if params is None:
+                    print(f"  {name} sim {sim}: fitting failed")
+                    continue
+                codelen = compute_codelen(params, sigma, counts, norm, func)
+
+            if np.isfinite(nll) and np.isfinite(codelen):
+                aifeyn = aifeyn_values[name]
+                dl = nll + codelen + aifeyn
+                results[name][sim] = {
+                    'nll': -nll,
+                    'dl': -dl,
+                    'codelen': codelen,
+                    'params': params.copy(),
+                }
+
+                if info['nparam'] > 0:
+                    info['p0'] = params.copy()
+
+        if (sim_idx + 1) % 10 == 0 or sim_idx == 0:
+            print(f"  Completed {sim_idx+1}/{len(sim_numbers)} sims", flush=True)
+
+    # Combined DL
+    print(f"\n{'='*80}")
+    print(f"Combined results across simulations (TRIMMED)")
+    print(f"{'='*80}")
+
+    for name, info in LITERATURE_FUNCTIONS.items():
+        sim_results = results[name]
+        n_sims = len(sim_results)
+        if n_sims == 0:
+            print(f"\n{name}: no valid fits")
+            continue
+
+        aifeyn = aifeyn_values[name]
+        sum_DL = sum(r['dl'] for r in sim_results.values())
+        sum_NLL = sum(r['nll'] for r in sim_results.values())
+        DL_combined = sum_DL + (n_sims - 1) * aifeyn
+
+        print(f"\n{name}:")
+        print(f"  n_sims = {n_sims}")
+        print(f"  aifeynman = {aifeyn:.6f}")
+        print(f"  sum_NLL = {sum_NLL:.2f}")
+        print(f"  sum_DL = {sum_DL:.2f}")
+        print(f"  DL_combined = {DL_combined:.2f}")
+
+        if info['nparam'] > 0:
+            all_params = np.array([sim_results[s]['params'] for s in sorted(sim_results.keys())])
+            print(f"  Parameter statistics across {n_sims} sims:")
+            for j in range(info['nparam']):
+                vals = all_params[:, j]
+                print(f"    a{j}: mean={np.mean(vals):.6f}, "
+                      f"16th={np.percentile(vals, 16):.6f}, "
+                      f"84th={np.percentile(vals, 84):.6f}")
+
+    # Save
+    outfile = 'literature_combined_DL_trimmed.txt'
+    with open(outfile, 'w') as f:
+        f.write('# name;DL_combined;sum_NLL;sum_DL;aifeynman;n_sims\n')
+        for name in LITERATURE_FUNCTIONS:
+            sim_results = results[name]
+            n_sims = len(sim_results)
+            if n_sims == 0:
+                continue
+            aifeyn = aifeyn_values[name]
+            sum_DL = sum(r['dl'] for r in sim_results.values())
+            sum_NLL = sum(r['nll'] for r in sim_results.values())
+            DL_combined = sum_DL + (n_sims - 1) * aifeyn
+            f.write(f"{name};{DL_combined:.6f};{sum_NLL:.6f};{sum_DL:.6f};{aifeyn:.6f};{n_sims}\n")
+    print(f"\nCombined results saved to {outfile}")
+
+    outfile2 = 'literature_fits_trimmed.txt'
+    with open(outfile2, 'w') as f:
+        f.write('# name;sim;DL;NLL;codelen;params\n')
+        for name in LITERATURE_FUNCTIONS:
+            for sim in sorted(results[name].keys()):
+                r = results[name][sim]
+                pstr = ' '.join(f'{p:.10f}' for p in r['params']) if len(r['params']) > 0 else 'none'
+                f.write(f"{name};{sim};{r['dl']:.6f};{r['nll']:.6f};{r['codelen']:.6f};{pstr}\n")
+    print(f"Per-sim results saved to {outfile2}")
+
+
+if __name__ == '__main__':
+    main()

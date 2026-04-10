@@ -1,24 +1,3 @@
-"""Histogram and stacked bar chart plots for HMF function rankings.
-
-Reads pre-computed ranking data and produces two publication figures:
-  1. Histogram of delta-DL values for the top 5 HMF functions across simulations.
-  2. Stacked bar chart showing how often each function ranks 1st--5th across
-     100 Quijote simulations, with a legend panel listing function expressions.
-
-This is a lightweight laptop version of the plotting code in sample_top_200.py,
-designed to run without MPI or cluster access.
-
-Inputs:
-    - histogram_data.txt   : delta-DL values per function (space-delimited).
-    - ordered_gold.txt     : rank tally data (!-delimited), one row per function.
-
-Outputs:
-    - Final_Plots/ranked_histogram.pdf
-    - Final_Plots/stacked_rank.pdf
-
-Dependencies:
-    numpy, matplotlib, pytexit
-"""
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -48,7 +27,7 @@ ax.set_xlabel(r'$\delta$' + 'DL')
 ax.set_ylabel('Frequency')
 
 plt.tight_layout()
-plt.savefig('Final_Plots/ranked_histogram.pdf', dpi=200)
+plt.savefig('Final Plots/ranked_histogram.pdf', dpi=200)
 plt.show()
 plt.clf()
 
@@ -106,7 +85,6 @@ for idx, row in enumerate(ordered_gold):
     row[7] = row[7][1:-1]
     
     text_fcn = py2tex(row[-1].replace('Abs','abs')).replace('$','').replace(' ','')
-    text_fcn = text_fcn.replace('\\log', '\\ln')
 
     if r'e^{a0-{\frac{|a1|}{x}}^{a2-x}}' in text_fcn:
         text_fcn = text_fcn.replace(r'e^{a0-{\frac{|a1|}{x}}^{a2-x}}', r'e^{a0-\left({\frac{|a1|}{x}}\right)^{\left(a2-x\right)}}')
@@ -134,6 +112,6 @@ for idx, row in enumerate(ordered_gold):
 
 # Save
 plt.tight_layout()
-plt.savefig('Final_Plots/stacked_rank.pdf',bbox_inches='tight',dpi=200)
+plt.savefig('Final Plots/stacked_rank.pdf',bbox_inches='tight',dpi=200)
 plt.show()
 plt.clf()

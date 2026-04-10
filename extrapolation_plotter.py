@@ -8,6 +8,8 @@ Usage:
 
 import os
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from scipy.special import gamma as Gamma
 import matplotlib.gridspec as gridspec
@@ -20,11 +22,11 @@ gamma = Gamma  # alias so eval() of Bernardi functions works
 
 def load_lf_smf(data_set):
     """Return x (in 10^9 solar units), log10(phi), y_err, and log10(M_raw)."""
-    data_file = 'data/{}.txt'.format(data_set)
+    data_file = '{}.txt'.format(data_set)
     if not os.path.isfile(data_file):
         for suffix in ('_L', '_M'):
             if data_set.endswith(suffix):
-                alt = 'data/{}.txt'.format(data_set[:-2])
+                alt = '{}.txt'.format(data_set[:-2])
                 if os.path.isfile(alt):
                     data_file = alt
                 break
@@ -42,9 +44,9 @@ def load_lf_smf(data_set):
 def load_hmf(data_set):
     """Return x (=sigma), y (=log10 number density), y_err, and logM for HMF."""
     _, counts, y_err_raw, Veff_factor_delta, _ = np.loadtxt(
-        'data/hmf_files/{}.dat'.format(data_set), dtype=float, unpack=True)
+        '{}_new.txt'.format(data_set), dtype=float, unpack=True)
     logM, sigma, factor = np.loadtxt(
-        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+        'mass_variance_multiplier.txt', dtype=float, unpack=True)
     n = len(counts)
     logM, sigma = logM[:n], sigma[:n]
     x = sigma                                  # ESR variable
@@ -95,15 +97,15 @@ SCH_COLOUR   = '#9467bd'   # purple
 BER_COLOUR   = '#8c564b'   # brown
 DATA_COLOUR  = 'black'
 
-LIT_COLOURS  = {'Sch': SCH_COLOUR, 'Ber': BER_COLOUR,
+LIT_COLOURS  = {'Sch.': SCH_COLOUR, 'Ber.': BER_COLOUR,
                 'P.Sch.': '#17becf', 'War.': '#bcbd22', 'Tin.': '#e377c2',
-                'Ber.': BER_COLOUR}
-LIT_STYLES   = {'Sch': '--', 'Ber': (0, (2, 2)),
+                'Ber.orig': '#e377c2', 'DblSch.': '#7f7f7f'}
+LIT_STYLES   = {'Sch.': '--', 'Ber.': (0, (2, 2)),
                 'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2)),
-                'Ber.': (0, (2, 2))}
-LIT_LABELS   = {'Sch': 'Schechter', 'Ber': 'Bernardi',
+                'Ber.orig': '-.', 'DblSch.': (0, (5, 5))}
+LIT_LABELS   = {'Sch.': 'Schechter', 'Ber.': 'Bernardi',
                 'P.Sch.': 'Press-Schechter', 'War.': 'Warren', 'Tin.': 'Tinker',
-                'Ber.': 'Bernardi'}
+                'Ber.orig': 'Bernardi (orig.)', 'DblSch.': 'Dbl. Schechter'}
 
 ESR_STYLES   = ['-', '-', '-', '-']
 
@@ -130,7 +132,7 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
     lit_keys : list of str  prefixes of literature sources to plot
     """
     if lit_keys is None:
-        lit_keys = ['Sch', 'Ber']
+        lit_keys = ['Sch.', 'Ber.orig', 'DblSch.', 'Ber.']
 
     # Load data
     if is_hmf:
@@ -139,14 +141,19 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
         # a smooth logM evaluation grid.
         from scipy.interpolate import interp1d
         logM_all, sigma_all, factor_all = np.loadtxt(
-            'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+            'mass_variance_multiplier.txt', dtype=float, unpack=True)
+        # Data file logM is in M_sun; convert to h^{-1}M_sun for display
+        h_offset = np.log10(0.6711)  # -0.1732
         sigma_of_logM = interp1d(logM_all, sigma_all, kind='cubic',
                                   fill_value='extrapolate')
         factor_of_logM = interp1d(logM_all, factor_all, kind='cubic',
                                    fill_value='extrapolate')
-        logM_eval = np.linspace(x_extrap_range[0], x_extrap_range[1], 5000)
-        x_eval = sigma_of_logM(logM_eval)
-        factor_eval = factor_of_logM(logM_eval)
+        # Evaluate in M_sun coords (for sigma lookup), then shift for display
+        logM_eval_Msun = np.linspace(x_extrap_range[0], x_extrap_range[1], 5000)
+        x_eval = sigma_of_logM(logM_eval_Msun)
+        factor_eval = factor_of_logM(logM_eval_Msun)
+        logM_eval = logM_eval_Msun + h_offset  # convert to h^{-1}M_sun
+        logM_data = logM_data + h_offset        # convert data points too
     else:
         x_data, y_data, y_err, logM_data = load_lf_smf(data_set)
         x_eval = np.geomspace(x_extrap_range[0], x_extrap_range[1], 5000)
@@ -186,7 +193,7 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
     # --- Literature functions ---
     lit_indices = {}  # key → index, for reuse in inset
     for key in lit_keys:
-        idxs = np.where(np.array([s.startswith(key) or s == key
+        idxs = np.where(np.array([s == key or s == key + '.'
                                    for s in source]))[0]
         if len(idxs):
             idx = idxs[0]
@@ -256,7 +263,7 @@ if __name__ == '__main__':
         title='LF: Sersic',
         xlabel=r'$\log(L\,/\,L_\odot)$',
         x_extrap_range=(1e-4, 1e8),
-        lit_keys=['Sch', 'Ber'],
+        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
@@ -271,7 +278,7 @@ if __name__ == '__main__':
         title='LF: cmodel',
         xlabel=r'$\log(L\,/\,L_\odot)$',
         x_extrap_range=(1e-4, 1e8),
-        lit_keys=['Sch', 'Ber'],
+        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
@@ -284,7 +291,7 @@ if __name__ == '__main__':
         title='SMF: Sersic',
         xlabel=r'$\log(M_\star\,/\,M_\odot)$',
         x_extrap_range=(1e-4, 1e9),
-        lit_keys=['Sch', 'Ber'],
+        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
@@ -299,7 +306,7 @@ if __name__ == '__main__':
         title='SMF: cmodel',
         xlabel=r'$\log(M_\star\,/\,M_\odot)$',
         x_extrap_range=(1e-4, 1e9),
-        lit_keys=['Sch', 'Ber'],
+        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
@@ -311,12 +318,12 @@ if __name__ == '__main__':
     plot_extrapolation(
         'hmf_50', axes[2, 0],
         title='HMF',
-        xlabel=r'$\log(M_h\,/\,M_\odot)$',
+        xlabel=r'$\log(M_h\,/\,h^{-1}M_\odot)$',
         x_extrap_range=(8, 20),
         is_hmf=True,
-        inset_xlim=(8, 12.5),
+        inset_xlim=(7.8, 12.3),
         lit_keys=['P.Sch.', 'War.', 'Tin.', 'Ber.'],
-        plot_xlim=(8, 17),
+        plot_xlim=(7.8, 16.8),
     )
     axes[2, 0].set_ylabel(r'$\log\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=12)
 
@@ -339,9 +346,10 @@ if __name__ == '__main__':
             if l not in all_labels:
                 all_handles.append(h)
                 all_labels.append(l)
+    ncol = (len(all_labels) + 1) // 2
     fig.legend(all_handles, all_labels, loc='upper center',
-               ncol=len(all_labels), fontsize=11, frameon=True,
-               bbox_to_anchor=(0.5, 1.03))
+               ncol=ncol, fontsize=11, frameon=True,
+               bbox_to_anchor=(0.5, 1.04))
 
     plt.savefig('Final_Plots/extrapolation_behaviour.pdf',
                 dpi=200, bbox_inches='tight')

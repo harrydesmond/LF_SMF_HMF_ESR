@@ -105,6 +105,24 @@ The analysis proceeds in several stages. Below they are grouped by function.
 
 All plot outputs are saved to a `Final_Plots/` directory (created if absent).
 
+### 4. HMF restricted mass range (fiducial analysis)
+
+The fiducial HMF results in the paper exclude the two lowest-mass bins (log(M/h⁻¹M☉) < 12.6, i.e. ≲40 particles per halo) and rerun the full ESR search on this restricted range. The scripts below implement this pipeline:
+
+| Script | Description | Usage |
+|--------|-------------|-------|
+| `run_hmf_trimmed_step1.py` | Full ESR (complexities 4–10) on restricted-range HMF data for 10 representative sims | Cluster (MPI) |
+| `run_hmf_trimmed_step2.py` | Identify top 200 functions by mean rank across 10 sims → `top_500_trimmed.txt` | Cluster (single core) |
+| `run_trimmed_hmf.py` | Refit top 200 functions to all 100 sims | Cluster (MPI) |
+| `run_trimmed_hmf_recovery.py` | Recovery for timed-out sims + fit re/im-stripped functions | Cluster (MPI) |
+| `run_trimmed_hmf_re.py` | Fit functions with sympy `re()`/`im()` artifacts after stripping | Cluster (MPI) |
+| `compute_combined_DL_trimmed_new.py` | Compute combined DL for restricted-range results | Local |
+| `fit_literature_trimmed.py` | Fit Warren/Tinker/Press-Schechter to restricted-range data | Local |
+| `build_trimmed_table.py` | Generate table data for the paper | Local |
+| `trimmed_checks_and_plots.py` | Physicality checks + standalone restricted-range HMF plots | Local |
+
+Updated plotting scripts (`Pareto_plotter_neater.py`, `function_plotter_neater.py`, `sample_top_200_neater.py`) are improved versions of the originals with support for the restricted mass range. The originals are retained for reference.
+
 ## Intermediate data files
 
 Several intermediate files are produced by the fitting scripts and consumed by plotting/analysis scripts:
@@ -119,6 +137,13 @@ Several intermediate files are produced by the fitting scripts and consumed by p
 | `literature_combined_DL.txt` | `fit_literature_all_sims.py` | Combined DL for literature functions |
 | `ordered_gold.txt` | `sample_top_200.py` step3 | Rank tally data for stacked bar chart |
 | `all_paper_fitting_data.txt` | `fit_all.py` (paper mode) | Literature function fit results per dataset |
+| `top_500_trimmed.txt` | `run_hmf_trimmed_step2.py` | Top 500 restricted-range HMF functions |
+| `hmf_data/hmf_<sim>_data/final_all_trimmed.txt` | `run_trimmed_hmf.py` | Per-sim restricted-range fit results |
+| `hmf_combined_DL_trimmed_new.txt` | `compute_combined_DL_trimmed_new.py` | Combined DL for restricted-range HMF |
+| `hmf_50_final_functions_trimmed.txt` | (manual) | Per-complexity best + literature for sim 50 (restricted range) |
+| `hmf_trimmed_searchcomp.txt` | (manual) | Function → ESR search complexity mapping |
+| `literature_fits_trimmed.txt` | `fit_literature_trimmed.py` | Per-sim literature fits on restricted-range data |
+| `ordered_gold_trimmed.txt` | `trimmed_checks_and_plots.py` | Rank tally for restricted-range stacked bar chart |
 
 ## Workflow
 

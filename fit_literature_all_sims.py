@@ -1,13 +1,12 @@
 """
 Fit literature HMF functions (Press-Schechter, Warren, Tinker) to all 100 Quijote sims.
 
-The hmf_*.dat files have 5 columns: sigma, counts, col2, normalization, log10(M).
+The hmf_*_new.dat files have 5 columns: sigma, counts, col2, normalization, log10(M).
 The ESR fits predict f(sigma) and NLL = sum(f*norm - counts*log(f*norm)).
 """
 
 import sys
-# Update this path to your local ESR installation
-# sys.path.insert(0, '/path/to/ESR')
+sys.path.insert(0, '/home/harry/Symbolic_regression/ESR-main/')
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -22,7 +21,7 @@ from esr.generation.generator import string_to_node, aifeyn_complexity
 
 
 def load_hmf_data(sim):
-    filepath = f'data/hmf_files/hmf_{sim}.dat'
+    filepath = f'hmf_files/hmf_{sim}_new.dat'
     data = np.loadtxt(filepath)
     return data[:, 0], data[:, 1], data[:, 3]  # sigma, counts, norm
 
@@ -195,7 +194,7 @@ def main():
     sim_numbers = sorted([
         int(f.split('_')[1])
         for f in os.listdir('hmf_files')
-        if f.startswith('hmf_') and f.endswith('.dat')
+        if f.startswith('hmf_') and f.endswith('_new.dat')
     ])
     print(f"Found {len(sim_numbers)} simulations: {sim_numbers[0]}..{sim_numbers[-1]}")
 
