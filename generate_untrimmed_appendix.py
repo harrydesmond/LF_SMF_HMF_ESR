@@ -269,7 +269,7 @@ for name in ['P.Sch.', 'War.', 'Tin.']:
 ax_logM.set_xlabel(r'$\log(M_h\,/\,h^{-1}M_\odot)$', fontsize=FS_LABEL)
 ax_logM.set_ylabel(r'$\log\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=FS_LABEL)
 ax_logM.set_xlim(7.8, 16.8)
-ax_logM.set_ylim(-12, 0)
+ax_logM.set_ylim(-30, 0)
 ax_logM.tick_params(labelsize=FS_TICK)
 
 # Inset
@@ -335,7 +335,7 @@ ax_sigma.set_ylabel(r'$\log\!\left(f(\sigma)\right)$', fontsize=FS_LABEL)
 ax_sigma.yaxis.set_label_position('right')
 ax_sigma.yaxis.tick_right()
 ax_sigma.set_xlim(0, 8)
-ax_sigma.set_ylim(-12, 2)
+ax_sigma.set_ylim(-7, 2)
 ax_sigma.tick_params(labelsize=FS_TICK)
 
 # Joint legend across top

@@ -94,7 +94,7 @@ def plot_hmf_sigma(ax):
                     label=LIT_LABELS[key], zorder=4)
 
     ax.set_xlim(0, 8)
-    ax.set_ylim(-12, 2)
+    ax.set_ylim(-7, 2)
 
 
 if __name__ == '__main__':
