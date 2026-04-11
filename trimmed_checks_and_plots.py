@@ -343,7 +343,7 @@ fig, (ax_data, ax_res, ax_nll) = plt.subplots(
     3, 1, figsize=(7, 8), gridspec_kw={'height_ratios': [3, 1, 1]})
 
 ax_data.errorbar(logM_50, y_50, yerr=y_err_50, fmt='x', color='black',
-                 ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (trimmed)')
+                 ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data')
 
 # ESR rank-1 reference for ΔNLL
 f1_call, _ = make_func(esr_results[0]['function'])
@@ -389,8 +389,8 @@ ax_nll.set_ylabel(r'$\Delta$NLL', fontsize=16)
 ax_nll.set_xlabel(r'$\log(M_{\rm halo} / h^{-1} M_\odot)$', fontsize=16)
 ax_res.axhline(0, color='grey', ls=':', lw=0.5)
 ax_nll.axhline(0, color='grey', ls=':', lw=0.5)
-ax_res.set_ylim([-9, 9])
-ax_nll.set_ylim([-50, 90])
+ax_res.set_ylim([-6, 6])
+ax_nll.set_ylim([-3, 12])
 plt.setp(ax_data.get_xticklabels(), visible=False)
 plt.setp(ax_res.get_xticklabels(), visible=False)
 for ax in [ax_data, ax_res, ax_nll]:

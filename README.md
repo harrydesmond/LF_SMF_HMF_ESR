@@ -120,8 +120,9 @@ The fiducial HMF results in the paper exclude the two lowest-mass bins (log(M/hâ
 | `fit_literature_trimmed.py` | Fit Warren/Tinker/Press-Schechter to restricted-range data | Local |
 | `build_trimmed_table.py` | Generate table data for the paper | Local |
 | `trimmed_checks_and_plots.py` | Physicality checks + standalone restricted-range HMF plots | Local |
+| `generate_untrimmed_appendix.py` | Standalone appendix HMF Pareto + extrapolation plots on the full (untrimmed) mass range, with enlarged fonts matching the appendix-figure style. Imports `make_single_panel_figure` from `Pareto_plotter_neater.py`. | Local |
 
-Updated plotting scripts (`Pareto_plotter_neater.py`, `function_plotter_neater.py`, `sample_top_200_neater.py`) are improved versions of the originals with support for the restricted mass range. The originals are retained for reference.
+Updated plotting scripts (`Pareto_plotter_neater.py`, `function_plotter_neater.py`, `sample_top_200_neater.py`) are improved versions of the originals with support for the restricted mass range. The originals are retained for reference. `Pareto_plotter_neater.py` exposes `make_single_panel_figure`, `plot_pareto`, `load_pareto_data`, `load_ps_like_for_hmf`, etc.\ as importable utilities (its driver code is gated behind `if __name__ == '__main__':` so importing has no side effects).
 
 ## Intermediate data files
 

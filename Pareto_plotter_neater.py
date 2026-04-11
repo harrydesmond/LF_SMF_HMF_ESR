@@ -109,10 +109,10 @@ def load_ps_like_for_hmf(sim=50):
                 'ps_like': is_ps,
             })
     return results
-def coloured_ylabel(fig, ax, fontsize=11):
+def coloured_ylabel(fig, ax, fontsize=11, x_offset=0.05):
     """Set a two-colour y-axis label: blue ΔDL / red ΔNLL."""
     box = ax.get_position()
-    x = box.x0 - 0.05
+    x = box.x0 - x_offset
     y_mid = 0.5 * (box.y0 + box.y1)
     fig.text(x, y_mid, r'$\Delta$DL', color='C0', fontsize=fontsize,
              rotation=90, ha='center', va='bottom')
@@ -193,7 +193,8 @@ def add_break_marks(fig, ax_left, ax_right, dx=0.004, dy=0.007, x_shift=-0.0015)
     fig.add_artist(top_connector)
 
 
-def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None):
+def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None,
+                tick_fontsize=11, legend_fontsize=8):
     """Plot Pareto front for a single dataset onto a list of broken-x sub-axes."""
     source, comp, DL, NLL = load_pareto_data(data_set)
 
@@ -296,6 +297,8 @@ def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None):
     for ax, (xmin, xmax, ticks) in zip(ax_list, segments):
         ax.set_xlim(xmin, xmax)
         ax.set_ylim(bottom=ymin, top=ymax)
+        ax.set_xticks(ticks)
+        ax.tick_params(labelsize=tick_fontsize)
 
         # ESR curves and points
         ax.plot(esr_comp, esr_DL_rel, 'o-', color='C0', ms=5, zorder=5, lw=1.5)
@@ -361,10 +364,7 @@ def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None):
             r'PS-like $\Delta$NLL',
         ]
         ax_list[-1].legend(loc_handles, loc_labels, loc='upper right',
-                           fontsize=8, frameon=True, framealpha=0.9)
-
-        ax.set_xticks(ticks)
-        ax.tick_params(labelsize=11)
+                           fontsize=legend_fontsize, frameon=True, framealpha=0.9)
 
     # Style seams between neighboring segments (actual marks are drawn later after layout)
     break_pairs = []
@@ -379,7 +379,9 @@ def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None):
     return break_pairs
 
 
-def make_single_panel_figure(data_set, output_path, ps_like_data=None):
+def make_single_panel_figure(data_set, output_path, ps_like_data=None,
+                              label_fontsize=11, tick_fontsize=11, legend_fontsize=8,
+                              figsize=(5.6, 4.0), ylabel_x_offset=0.05):
     """Create one Pareto panel (with broken x-axis if needed) for a single dataset."""
     source, comp, DL, NLL = load_pareto_data(data_set)
     if ps_like_data is not None:
@@ -391,7 +393,22 @@ def make_single_panel_figure(data_set, output_path, ps_like_data=None):
         segments = split_complexity_segments(comp, min_gap=3, pad=0.35)
     segments = apply_lower_x_cut(segments, LOWER_X_CUTS.get(data_set))
 
-    fig = plt.figure(figsize=(5.6, 4.0))
+    # HMF: cap upper x at 16.5 and insert tick 15 in the 14-16 segment
+    if data_set == 'hmf_50':
+        xmax_cut = 16.5
+        new_segs = []
+        for xmin_s, xmax_s, ticks_s in segments:
+            if xmin_s > xmax_cut:
+                continue
+            new_segs.append((xmin_s, min(xmax_s, xmax_cut), [t for t in ticks_s if t <= xmax_cut]))
+        segments = new_segs
+        for j, (xmin_s, xmax_s, ticks_s) in enumerate(segments):
+            if 14 <= xmax_s and 15 not in ticks_s and xmin_s <= 15 <= xmax_s:
+                ticks_s.append(15)
+                ticks_s.sort()
+                segments[j] = (xmin_s, xmax_s, ticks_s)
+
+    fig = plt.figure(figsize=figsize)
     width_ratios = [max(xmax - xmin, 0.5) for xmin, xmax, _ in segments]
     inner = fig.add_gridspec(1, len(segments), wspace=0.05, width_ratios=width_ratios)
 
@@ -404,10 +421,12 @@ def make_single_panel_figure(data_set, output_path, ps_like_data=None):
         ax_list.append(ax)
 
     break_pairs = plot_pareto(ax_list, segments, data_set, datasets_info={},
-                              ps_like_data=ps_like_data)
+                              ps_like_data=ps_like_data,
+                              tick_fontsize=tick_fontsize,
+                              legend_fontsize=legend_fontsize)
 
-    fig.subplots_adjust(top=0.97, left=0.12, right=0.98, bottom=0.17)
-    coloured_ylabel(fig, ax_list[0], fontsize=11)
+    fig.subplots_adjust(top=0.97, left=0.18, right=0.98, bottom=0.17)
+    coloured_ylabel(fig, ax_list[0], fontsize=label_fontsize, x_offset=ylabel_x_offset)
     for left_ax, right_ax in break_pairs:
         add_break_marks(fig, left_ax, right_ax)
 
@@ -415,7 +434,7 @@ def make_single_panel_figure(data_set, output_path, ps_like_data=None):
     right_box = ax_list[-1].get_position()
     x_center = 0.5 * (left_box.x0 + right_box.x1)
     y_pos = left_box.y0 - 0.055
-    fig.text(x_center, y_pos, 'Complexity', ha='center', va='top', fontsize=11)
+    fig.text(x_center, y_pos, 'Complexity', ha='center', va='top', fontsize=label_fontsize)
 
     fig.savefig(output_path, dpi=200, bbox_inches='tight')
     plt.close(fig)
@@ -438,136 +457,137 @@ LOWER_X_CUTS = {
     'SMF_cmodel_M': 5.8,
 }
 
-# Pre-load PS-like data for the HMF panel
-print("Loading PS-like data for HMF panel...")
-hmf_ps_data = load_ps_like_for_hmf(sim=50)
-n_ps = sum(1 for e in hmf_ps_data if e['ps_like'])
-print(f"  Found {n_ps} PS-like functions among top 200")
+if __name__ == '__main__':
+    # Pre-load PS-like data for the HMF panel
+    print("Loading PS-like data for HMF panel...")
+    hmf_ps_data = load_ps_like_for_hmf(sim=50)
+    n_ps = sum(1 for e in hmf_ps_data if e['ps_like'])
+    print(f"  Found {n_ps} PS-like functions among top 200")
 
-fig = plt.figure(figsize=(12, 11))
-outer = fig.add_gridspec(3, 2, wspace=0.25, hspace=0.35)
+    fig = plt.figure(figsize=(12, 11))
+    outer = fig.add_gridspec(3, 2, wspace=0.25, hspace=0.35)
 
-datasets_info = {}
-panel_axes = []
-all_break_pairs = []
+    datasets_info = {}
+    panel_axes = []
+    all_break_pairs = []
 
-for i, (ds, title) in enumerate(all_datasets):
-    source, comp, DL, NLL = load_pareto_data(ds)
-    # For HMF, include PS-like complexities in segment computation
-    if ds == 'hmf_50' and hmf_ps_data is not None:
-        ps_comps_extra = [e['complexity'] for e in hmf_ps_data
-                          if e['ps_like'] and e['complexity'] is not None]
-        all_comps = np.concatenate([comp, np.array(ps_comps_extra, dtype=int)])
-        segments = split_complexity_segments(all_comps, min_gap=3, pad=0.35)
-    else:
-        segments = split_complexity_segments(comp, min_gap=3, pad=0.35)
-    segments = apply_lower_x_cut(segments, LOWER_X_CUTS.get(ds))
-
-    # Apply upper x cut (e.g. HMF: cap at 16.5)
-    UPPER_X_CUTS = {'hmf_50': 16.5}
-    if ds in UPPER_X_CUTS:
-        xmax_cut = UPPER_X_CUTS[ds]
-        new_segs = []
-        for xmin_s, xmax_s, ticks_s in segments:
-            if xmin_s > xmax_cut:
-                continue
-            new_segs.append((xmin_s, min(xmax_s, xmax_cut), [t for t in ticks_s if t <= xmax_cut]))
-        segments = new_segs
-        # Add tick 15 to the segment containing 14-16
-        for j, (xmin_s, xmax_s, ticks_s) in enumerate(segments):
-            if 14 <= xmax_s and 15 not in ticks_s and xmin_s <= 15 <= xmax_s:
-                ticks_s.append(15)
-                ticks_s.sort()
-                segments[j] = (xmin_s, xmax_s, ticks_s)
-
-    if i < 4:
-        row, col = divmod(i, 2)
-        cell = outer[row, col]
-    else:
-        # HMF: centred in bottom row spanning both columns
-        # Use a 3-column wrapper: [padding, panel, padding] to centre
-        cell = outer[2, :]
-        wrapper = cell.subgridspec(1, 3, wspace=0, width_ratios=[1, 2, 1])
-        cell = wrapper[0, 1]
-
-    width_ratios = [max(xmax - xmin, 0.5) for xmin, xmax, _ in segments]
-    inner = cell.subgridspec(1, len(segments), wspace=0.05, width_ratios=width_ratios)
-
-    ax_list = []
-    for j in range(len(segments)):
-        if j == 0:
-            ax = fig.add_subplot(inner[0, j])
+    for i, (ds, title) in enumerate(all_datasets):
+        source, comp, DL, NLL = load_pareto_data(ds)
+        # For HMF, include PS-like complexities in segment computation
+        if ds == 'hmf_50' and hmf_ps_data is not None:
+            ps_comps_extra = [e['complexity'] for e in hmf_ps_data
+                              if e['ps_like'] and e['complexity'] is not None]
+            all_comps = np.concatenate([comp, np.array(ps_comps_extra, dtype=int)])
+            segments = split_complexity_segments(all_comps, min_gap=3, pad=0.35)
         else:
-            ax = fig.add_subplot(inner[0, j], sharey=ax_list[0])
-        ax_list.append(ax)
+            segments = split_complexity_segments(comp, min_gap=3, pad=0.35)
+        segments = apply_lower_x_cut(segments, LOWER_X_CUTS.get(ds))
 
-    ps_data = hmf_ps_data if ds == 'hmf_50' else None
-    break_pairs = plot_pareto(ax_list, segments, ds, datasets_info, ps_like_data=ps_data)
-    all_break_pairs.extend(break_pairs)
-    panel_axes.append((ax_list, segments))
+        # Apply upper x cut (e.g. HMF: cap at 16.5)
+        UPPER_X_CUTS = {'hmf_50': 16.5}
+        if ds in UPPER_X_CUTS:
+            xmax_cut = UPPER_X_CUTS[ds]
+            new_segs = []
+            for xmin_s, xmax_s, ticks_s in segments:
+                if xmin_s > xmax_cut:
+                    continue
+                new_segs.append((xmin_s, min(xmax_s, xmax_cut), [t for t in ticks_s if t <= xmax_cut]))
+            segments = new_segs
+            # Add tick 15 to the segment containing 14-16
+            for j, (xmin_s, xmax_s, ticks_s) in enumerate(segments):
+                if 14 <= xmax_s and 15 not in ticks_s and xmin_s <= 15 <= xmax_s:
+                    ticks_s.append(15)
+                    ticks_s.sort()
+                    segments[j] = (xmin_s, xmax_s, ticks_s)
 
-# Build unified legend
-leg_handles = []
-leg_labels = []
+        if i < 4:
+            row, col = divmod(i, 2)
+            cell = outer[row, col]
+        else:
+            # HMF: centred in bottom row spanning both columns
+            # Use a 3-column wrapper: [padding, panel, padding] to centre
+            cell = outer[2, :]
+            wrapper = cell.subgridspec(1, 3, wspace=0, width_ratios=[1, 2, 1])
+            cell = wrapper[0, 1]
 
-leg_handles.append(Line2D([], [], color='grey', marker='o', linestyle='-', ms=5))
-leg_labels.append('ESR')
+        width_ratios = [max(xmax - xmin, 0.5) for xmin, xmax, _ in segments]
+        inner = cell.subgridspec(1, len(segments), wspace=0.05, width_ratios=width_ratios)
 
-for key in ['Sch.', 'Ber.', 'Ber.orig', 'DblSch.', 'P.Sch.', 'War.', 'Tin.']:
-    if key in datasets_info:
-        info = datasets_info[key]
-        ds_str = ', '.join(sorted(info['datasets']))
-        leg_handles.append(Line2D([], [], color='grey', marker=info['marker'],
-                                  linestyle='None', ms=8, markeredgewidth=1.5))
-        leg_labels.append(f"{info['name']} ({ds_str})")
+        ax_list = []
+        for j in range(len(segments)):
+            if j == 0:
+                ax = fig.add_subplot(inner[0, j])
+            else:
+                ax = fig.add_subplot(inner[0, j], sharey=ax_list[0])
+            ax_list.append(ax)
 
-leg_handles.append(Line2D([], [], color='C0', linestyle='-', lw=2))
-leg_labels.append(r'$\Delta$DL')
-leg_handles.append(Line2D([], [], color='C3', linestyle='-', lw=2))
-leg_labels.append(r'$\Delta$NLL')
+        ps_data = hmf_ps_data if ds == 'hmf_50' else None
+        break_pairs = plot_pareto(ax_list, segments, ds, datasets_info, ps_like_data=ps_data)
+        all_break_pairs.extend(break_pairs)
+        panel_axes.append((ax_list, segments))
 
-fig.legend(leg_handles, leg_labels, loc='upper center', ncol=4, fontsize=11,
-           bbox_to_anchor=(0.5, 1.03), frameon=True)
+    # Build unified legend
+    leg_handles = []
+    leg_labels = []
 
-fig.subplots_adjust(top=0.94, left=0.08, right=0.98, bottom=0.06)
+    leg_handles.append(Line2D([], [], color='grey', marker='o', linestyle='-', ms=5))
+    leg_labels.append('ESR')
 
-# Y-axis labels
-for ax_list, _ in panel_axes:
-    coloured_ylabel(fig, ax_list[0], fontsize=11)
+    for key in ['Sch.', 'Ber.', 'Ber.orig', 'DblSch.', 'P.Sch.', 'War.', 'Tin.']:
+        if key in datasets_info:
+            info = datasets_info[key]
+            ds_str = ', '.join(sorted(info['datasets']))
+            leg_handles.append(Line2D([], [], color='grey', marker=info['marker'],
+                                      linestyle='None', ms=8, markeredgewidth=1.5))
+            leg_labels.append(f"{info['name']} ({ds_str})")
 
-# Panel titles centred across full broken-axis span
-for (ax_list, _segs), (_, title) in zip(panel_axes, all_datasets):
-    left_box = ax_list[0].get_position()
-    right_box = ax_list[-1].get_position()
-    x_center = 0.5 * (left_box.x0 + right_box.x1)
-    y_pos = left_box.y1 - 0.005
-    fig.text(x_center, y_pos, title, ha='center', va='top', fontsize=13, fontweight='bold')
+    leg_handles.append(Line2D([], [], color='C0', linestyle='-', lw=2))
+    leg_labels.append(r'$\Delta$DL')
+    leg_handles.append(Line2D([], [], color='C3', linestyle='-', lw=2))
+    leg_labels.append(r'$\Delta$NLL')
 
-# Draw break marks after final layout so they sit exactly on axis seams
-for left_ax, right_ax in all_break_pairs:
-    add_break_marks(fig, left_ax, right_ax)
+    fig.legend(leg_handles, leg_labels, loc='upper center', ncol=4, fontsize=11,
+               bbox_to_anchor=(0.5, 1.03), frameon=True)
 
-# Centered x-label under each full broken-axis panel
-for ax_list, _ in panel_axes:
-    left_box = ax_list[0].get_position()
-    right_box = ax_list[-1].get_position()
-    x_center = 0.5 * (left_box.x0 + right_box.x1)
-    y_pos = left_box.y0 - 0.03
-    fig.text(x_center, y_pos, 'Complexity', ha='center', va='top', fontsize=11)
+    fig.subplots_adjust(top=0.94, left=0.08, right=0.98, bottom=0.06)
 
-# Force integer ticks on all axes (must be done after layout is finalized)
-for ax_list, segs in panel_axes:
-    for ax, (xmin, xmax, ticks) in zip(ax_list, segs):
-        ax.set_xticks(ticks)
+    # Y-axis labels
+    for ax_list, _ in panel_axes:
+        coloured_ylabel(fig, ax_list[0], fontsize=11)
 
-plt.savefig('Final_Plots/Pareto_all.pdf', dpi=200, bbox_inches='tight')
+    # Panel titles centred across full broken-axis span
+    for (ax_list, _segs), (_, title) in zip(panel_axes, all_datasets):
+        left_box = ax_list[0].get_position()
+        right_box = ax_list[-1].get_position()
+        x_center = 0.5 * (left_box.x0 + right_box.x1)
+        y_pos = left_box.y1 - 0.005
+        fig.text(x_center, y_pos, title, ha='center', va='top', fontsize=13, fontweight='bold')
 
-# Standalone panels for LaTeX subfigures
-make_single_panel_figure('LF_Ser_L', 'Final_Plots/Pareto_LF_Sersic.pdf')
-make_single_panel_figure('LF_cmodel_L', 'Final_Plots/Pareto_LF_cmodel.pdf')
-make_single_panel_figure('SMF_Ser_M', 'Final_Plots/Pareto_SMF_Sersic.pdf')
-make_single_panel_figure('SMF_cmodel_M', 'Final_Plots/Pareto_SMF_cmodel.pdf')
-make_single_panel_figure('hmf_50', 'Final_Plots/Pareto_HMF.pdf', ps_like_data=hmf_ps_data)
+    # Draw break marks after final layout so they sit exactly on axis seams
+    for left_ax, right_ax in all_break_pairs:
+        add_break_marks(fig, left_ax, right_ax)
 
-plt.show()
-plt.clf()
+    # Centered x-label under each full broken-axis panel
+    for ax_list, _ in panel_axes:
+        left_box = ax_list[0].get_position()
+        right_box = ax_list[-1].get_position()
+        x_center = 0.5 * (left_box.x0 + right_box.x1)
+        y_pos = left_box.y0 - 0.03
+        fig.text(x_center, y_pos, 'Complexity', ha='center', va='top', fontsize=11)
+
+    # Force integer ticks on all axes (must be done after layout is finalized)
+    for ax_list, segs in panel_axes:
+        for ax, (xmin, xmax, ticks) in zip(ax_list, segs):
+            ax.set_xticks(ticks)
+
+    plt.savefig('Final_Plots/Pareto_all.pdf', dpi=200, bbox_inches='tight')
+
+    # Standalone panels for LaTeX subfigures
+    make_single_panel_figure('LF_Ser_L', 'Final_Plots/Pareto_LF_Sersic.pdf')
+    make_single_panel_figure('LF_cmodel_L', 'Final_Plots/Pareto_LF_cmodel.pdf')
+    make_single_panel_figure('SMF_Ser_M', 'Final_Plots/Pareto_SMF_Sersic.pdf')
+    make_single_panel_figure('SMF_cmodel_M', 'Final_Plots/Pareto_SMF_cmodel.pdf')
+    make_single_panel_figure('hmf_50', 'Final_Plots/Pareto_HMF.pdf', ps_like_data=hmf_ps_data)
+
+    plt.show()
+    plt.clf()
