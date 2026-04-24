@@ -204,7 +204,7 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
                     color=LIT_COLOURS[key], linestyle=LIT_STYLES[key],
                     lw=1.6, label=LIT_LABELS[key], zorder=4)
 
-    ax.set_ylim(bottom=-30)
+    ax.set_ylim(-30, 2)
     if plot_xlim is not None:
         ax.set_xlim(*plot_xlim)
     ax.set_xlabel(xlabel, fontsize=12)
