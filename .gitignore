@@ -1,0 +1,13 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated plot directories (created on demand by setup_paths.py)
+Plots/
+Final_Plots/
+
+# ESR per-complexity output directories (produced by the fitting pipeline)
+hmf_[0-9]*_data/
+hmf_trimmed_*_data/
+hmf_data/

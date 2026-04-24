@@ -25,7 +25,6 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-DATA_DIR = '/users/ameliaford/original_ESR/ESR'
 
 TIMEOUT_SECONDS = 120  # per-function timeout
 
@@ -84,7 +83,7 @@ def strip_re_im(func_str):
 
 def create_trimmed_data(sim_id):
     """Create a trimmed data file (drop first 2 rows)."""
-    src = os.path.join(DATA_DIR, f'hmf_files/hmf_{sim_id}_new.dat')
+    src = f'data/hmf_files/hmf_{sim_id}.dat'
     data = np.loadtxt(src)
     trimmed = data[2:]
     dst_rel = f'hmf_files/hmf_{sim_id}_trimmed.dat'

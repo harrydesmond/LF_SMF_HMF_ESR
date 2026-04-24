@@ -1,7 +1,7 @@
 """Refit top 200 HMF functions on trimmed data (2 lowest-mass bins removed).
 
-This is a modified version of sample_top_200_neater.py's run_fits() that:
-1. Creates trimmed data files (dropping first 2 rows from hmf_*_new.dat)
+This is a modified version of sample_top_200.py's run_fits() that:
+1. Creates trimmed data files (dropping first 2 rows from hmf_*.dat)
 2. Fits all 200 functions from top_500_all.txt to each sim using ESR's fit_from_string
 3. Saves results to hmf_data/hmf_{sim}_data/final_all_trimmed.txt
 
@@ -24,8 +24,6 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-DATA_DIR = '/users/ameliaford/original_ESR/ESR'
-
 # All 100 sims
 all_sims = list(range(100))
 
@@ -41,7 +39,7 @@ def create_trimmed_data(sim_id):
     The file is placed alongside the originals so the path can be passed
     directly to PoissonLikelihood (which prepends data_dir).
     """
-    src = os.path.join(DATA_DIR, f'hmf_files/hmf_{sim_id}_new.dat')
+    src = f'data/hmf_files/hmf_{sim_id}.dat'
     data = np.loadtxt(src)
     trimmed = data[2:]  # drop 2 lowest-mass (highest-sigma) bins
     # Write to the working directory (not data_dir, since we'll pass full path)

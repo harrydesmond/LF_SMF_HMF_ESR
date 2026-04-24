@@ -20,7 +20,7 @@ from scipy.interpolate import interp1d
 import warnings
 warnings.filterwarnings('ignore')
 
-os.chdir('/home/harry/Amelia_code')
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # ── Font sizes matching Fig A1 ──────────────────────────────────────────────
 FS_LABEL = 16
@@ -55,7 +55,7 @@ def make_func(template):
 
 # ── Mass-variance relation (UNTRIMMED) ──────────────────────────────────────
 logM_mvm, sigma_mvm, factor_mvm = np.loadtxt(
-    'mass_variance_multiplier.txt.bak_untrimmed', dtype=float, unpack=True)
+    'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
 factor_of_sigma = interp1d(sigma_mvm, factor_mvm, kind='cubic', fill_value='extrapolate')
 logM_of_sigma = interp1d(sigma_mvm, logM_mvm, kind='cubic', fill_value='extrapolate')
 sigma_of_logM_mvm = interp1d(logM_mvm, sigma_mvm, kind='cubic', fill_value='extrapolate')
@@ -66,7 +66,7 @@ delta_logm = 0.2
 
 
 def load_hmf_data_untrimmed(sim_id):
-    data = np.loadtxt(f'hmf_files/hmf_{sim_id}_new.dat')
+    data = np.loadtxt(f'data/hmf_files/hmf_{sim_id}.dat')
     n_full = len(data)
     factor = factor_mvm[:n_full]
     logM_bin = logM_mvm[:n_full]
@@ -192,11 +192,11 @@ def check_ps_like(func_str, params, sigma_vals=(100, 1000, 10000)):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Part A: Pareto front (untrimmed) — delegate to Pareto_plotter_neater
+# Part A: Pareto front (untrimmed) — delegate to Pareto_plotter
 # ══════════════════════════════════════════════════════════════════════════════
 print("=== Plot: Pareto HMF untrimmed ===")
 
-from Pareto_plotter_neater import make_single_panel_figure, load_ps_like_for_hmf
+from Pareto_plotter import make_single_panel_figure, load_ps_like_for_hmf
 
 hmf_ps_data = load_ps_like_for_hmf(sim=50)
 n_ps = sum(1 for e in hmf_ps_data if e['ps_like'])
@@ -354,5 +354,66 @@ plt.savefig('Plots/extrapolation_HMF_untrimmed.png', dpi=150, bbox_inches='tight
 plt.savefig('Final_Plots/extrapolation_HMF_untrimmed.pdf', dpi=200, bbox_inches='tight')
 plt.close()
 print("Saved extrapolation_HMF_untrimmed")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Part C: Function fits (HMF_functions_untrimmed.pdf, Fig A1)
+# Mirrors trimmed_checks_and_plots.py Part 3 but for the untrimmed data.
+# ══════════════════════════════════════════════════════════════════════════════
+print("\n=== Plot: HMF functions untrimmed (Fig A1) ===")
+
+best_func, _, _, best_params = sim50_untrimmed[0]  # rank 1 by DL
+f1_call, _ = make_func(best_func)
+f1_vals = f1_call(best_params, sigma_50)
+phi1 = f1_vals * factor_50
+y_plot_best = np.log10(np.where(phi1 > 0, phi1, 1e-300))
+
+lam1 = np.maximum(f1_vals * factor_50 * Veff * delta_logm, 1e-300)
+nll1_bins = lam1 - counts_50 * np.log(lam1)
+
+fig, (ax_data, ax_res, ax_nll) = plt.subplots(
+    3, 1, figsize=(7, 8), gridspec_kw={'height_ratios': [3, 1, 1]})
+
+ax_data.errorbar(logM_50, y_50, yerr=y_err_50, fmt='x', color='black',
+                 ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data')
+ax_data.plot(logM_50, y_plot_best, color=ESR_COLOURS[0], lw=1.4,
+             label='ESR best', zorder=5)
+ax_res.plot(logM_50, (y_plot_best - y_50) / y_err_50,
+            color=ESR_COLOURS[0], lw=0.8)
+
+for name in ['P.Sch.', 'War.', 'Tin.']:
+    f_lit = eval_lit(name, sigma_50)
+    if f_lit is None:
+        continue
+    phi_lit = f_lit * factor_50
+    y_lit = np.log10(np.where(phi_lit > 0, phi_lit, 1e-300))
+    ax_data.plot(logM_50, y_lit, color=LIT_COLOURS[name], ls=LIT_STYLES[name],
+                 lw=1.6, label=LIT_LABELS[name], zorder=4)
+    ax_res.plot(logM_50, (y_lit - y_50) / y_err_50, color=LIT_COLOURS[name],
+                ls=LIT_STYLES[name], lw=0.8)
+    lam = np.maximum(f_lit * factor_50 * Veff * delta_logm, 1e-300)
+    ax_nll.plot(logM_50, (lam - counts_50 * np.log(lam)) - nll1_bins,
+                color=LIT_COLOURS[name], ls=LIT_STYLES[name], lw=0.8)
+
+ax_data.set_ylabel(r'$\log\!\left(\phi / {\rm Mpc^{-3} \, dex^{-1}}\right)$', fontsize=16)
+ax_res.set_ylabel(r'$\frac{\rm Residual}{\rm Uncertainty}$', fontsize=16)
+ax_nll.set_ylabel(r'$\Delta$NLL', fontsize=16)
+ax_nll.set_xlabel(r'$\log(M_h\,/\,h^{-1}M_\odot)$', fontsize=16)
+ax_res.axhline(0, color='grey', ls=':', lw=0.5)
+ax_nll.axhline(0, color='grey', ls=':', lw=0.5)
+ax_res.set_ylim([-11, 7])
+ax_nll.set_ylim([-50, 80])
+plt.setp(ax_data.get_xticklabels(), visible=False)
+plt.setp(ax_res.get_xticklabels(), visible=False)
+for ax in [ax_data, ax_res, ax_nll]:
+    ax.tick_params(labelsize=14)
+ax_data.legend(fontsize=10)
+fig.tight_layout()
+fig.subplots_adjust(hspace=0)
+
+plt.savefig('Plots/HMF_functions_untrimmed.png', dpi=150, bbox_inches='tight')
+plt.savefig('Final_Plots/HMF_functions_untrimmed.pdf', dpi=200, bbox_inches='tight')
+plt.close()
+print("Saved HMF_functions_untrimmed")
 
 print("\nAll done!")

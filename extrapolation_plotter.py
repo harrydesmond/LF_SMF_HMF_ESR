@@ -1,4 +1,4 @@
-"""Plot top 4 ESR functions + literature fits for LF Sersic, SMF Sersic,
+"""Plot top 4 ESR functions + literature fits for LF Sérsic, SMF Sérsic,
 SMF cmodel, and HMF, extending the x-range well beyond the data to reveal
 extrapolation behaviour.
 
@@ -7,6 +7,7 @@ Usage:
 """
 
 import os
+import setup_paths  # noqa: F401 — ensures Plots/ and Final_Plots/ exist
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -22,11 +23,11 @@ gamma = Gamma  # alias so eval() of Bernardi functions works
 
 def load_lf_smf(data_set):
     """Return x (in 10^9 solar units), log10(phi), y_err, and log10(M_raw)."""
-    data_file = '{}.txt'.format(data_set)
+    data_file = 'data/{}.txt'.format(data_set)
     if not os.path.isfile(data_file):
         for suffix in ('_L', '_M'):
             if data_set.endswith(suffix):
-                alt = '{}.txt'.format(data_set[:-2])
+                alt = 'data/{}.txt'.format(data_set[:-2])
                 if os.path.isfile(alt):
                     data_file = alt
                 break
@@ -44,9 +45,9 @@ def load_lf_smf(data_set):
 def load_hmf(data_set):
     """Return x (=sigma), y (=log10 number density), y_err, and logM for HMF."""
     _, counts, y_err_raw, Veff_factor_delta, _ = np.loadtxt(
-        '{}_new.txt'.format(data_set), dtype=float, unpack=True)
+        'data/hmf_files/{}.dat'.format(data_set), dtype=float, unpack=True)
     logM, sigma, factor = np.loadtxt(
-        'mass_variance_multiplier.txt', dtype=float, unpack=True)
+        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
     n = len(counts)
     logM, sigma = logM[:n], sigma[:n]
     x = sigma                                  # ESR variable
@@ -141,7 +142,7 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
         # a smooth logM evaluation grid.
         from scipy.interpolate import interp1d
         logM_all, sigma_all, factor_all = np.loadtxt(
-            'mass_variance_multiplier.txt', dtype=float, unpack=True)
+            'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
         # Data file logM is in M_sun; convert to h^{-1}M_sun for display
         h_offset = np.log10(0.6711)  # -0.1732
         sigma_of_logM = interp1d(logM_all, sigma_all, kind='cubic',
@@ -186,7 +187,7 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
     for rank, idx in enumerate(top4_esr):
         y_eval = eval_fcn(plot_fcn[idx], x_eval) * factor_eval
         logy = np.where(y_eval > 0, np.log10(y_eval), -300.0)
-        label = 'ESR {}'.format(rank + 1)
+        label = 'ESR rank {}'.format(rank + 1)
         ax.plot(logM_eval, logy, color=ESR_COLOURS[rank],
                 linestyle=ESR_STYLES[rank], lw=1.4, label=label, zorder=5)
 
@@ -257,10 +258,10 @@ if __name__ == '__main__':
 
     fig, axes = plt.subplots(3, 2, figsize=(14, 17))
 
-    # LF Sersic
+    # LF Sérsic
     plot_extrapolation(
         'LF_Ser_L', axes[0, 0],
-        title='LF: Sersic',
+        title='LF: Sérsic',
         xlabel=r'$\log(L\,/\,L_\odot)$',
         x_extrap_range=(1e-4, 1e8),
         lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
@@ -285,10 +286,10 @@ if __name__ == '__main__':
     axes[0, 1].set_ylabel('')
     plt.setp(axes[0, 1].get_yticklabels(), visible=False)
 
-    # SMF Sersic
+    # SMF Sérsic
     plot_extrapolation(
         'SMF_Ser_M', axes[1, 0],
-        title='SMF: Sersic',
+        title='SMF: Sérsic',
         xlabel=r'$\log(M_\star\,/\,M_\odot)$',
         x_extrap_range=(1e-4, 1e9),
         lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
@@ -336,6 +337,42 @@ if __name__ == '__main__':
     axes[2, 1].tick_params(labelsize=10)
     axes[2, 1].text(0.05, 0.95, r'HMF ($\sigma$)', transform=axes[2, 1].transAxes,
                     fontsize=13, va='top', ha='left', fontweight='bold')
+
+    # ── Overlay best PS-like function (rank 14, Eq 10) on HMF panels ──
+    # f(σ) = |θ₀|^{θ₁ - |θ₂|^{ln σ}} / σ  (sim 50 params)
+    _ps_func = 'np.power(np.abs(3.34541494),(-0.10935841 - np.power(np.abs(-0.17751593),np.log(x))))/x'
+    # Left panel: phi vs logM
+    from scipy.interpolate import interp1d as _interp1d
+    _logM_all, _sigma_all, _factor_all = np.loadtxt(
+        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+    _h_offset = np.log10(0.6711)
+    _sigma_of_logM = _interp1d(_logM_all, _sigma_all, kind='cubic', fill_value='extrapolate')
+    _factor_of_logM = _interp1d(_logM_all, _factor_all, kind='cubic', fill_value='extrapolate')
+    _logM_eval_Msun = np.linspace(8, 20, 5000)
+    _x_eval = _sigma_of_logM(_logM_eval_Msun)
+    _factor_eval = _factor_of_logM(_logM_eval_Msun)
+    _logM_eval = _logM_eval_Msun + _h_offset
+    with np.errstate(all='ignore'):
+        x = _x_eval
+        _f_ps = eval(_ps_func)
+    _y_ps = _f_ps * _factor_eval
+    _logy_ps = np.where(_y_ps > 0, np.log10(_y_ps), -300.0)
+    axes[2, 0].plot(_logM_eval, _logy_ps, color='darkcyan', ls='-', lw=1.4, zorder=5)
+    # Right panel: f vs sigma
+    _sigma_eval = np.geomspace(0.01, 20, 5000)
+    with np.errstate(all='ignore'):
+        x = _sigma_eval
+        _f_ps_sigma = eval(_ps_func)
+    _logy_ps_sigma = np.where(_f_ps_sigma > 0, np.log10(_f_ps_sigma), -300.0)
+    axes[2, 1].plot(_sigma_eval, _logy_ps_sigma, color='darkcyan', ls='-', lw=1.4, zorder=5)
+    # Local legend in both HMF panels
+    from matplotlib.lines import Line2D as _L2D
+    _ps_handle = [_L2D([], [], color='darkcyan', ls='-', lw=1.4)]
+    _ps_label = [r'PS-like (Eq. 10)']
+    axes[2, 0].legend(handles=_ps_handle, labels=_ps_label,
+                       loc='upper right', fontsize=9, framealpha=0.8)
+    axes[2, 1].legend(handles=_ps_handle, labels=_ps_label,
+                       loc='upper right', fontsize=9, framealpha=0.8)
 
     plt.tight_layout(w_pad=0)
 

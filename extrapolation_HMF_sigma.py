@@ -5,6 +5,7 @@ Usage:
     MPLBACKEND=Agg python3 extrapolation_HMF_sigma.py
 """
 
+import setup_paths  # noqa: F401 — ensures Plots/ and Final_Plots/ exist
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.special import gamma as Gamma
@@ -32,9 +33,9 @@ def eval_fcn(fcn_str, x):
 
 def plot_hmf_sigma(ax):
     """Plot HMF extrapolation in sigma-space on the given axes."""
-    _, counts, _, _, _ = np.loadtxt('hmf_50_new.txt', dtype=float, unpack=True)
+    _, counts, _, _, _ = np.loadtxt('data/hmf_files/hmf_50.dat', dtype=float, unpack=True)
     logM, sigma, factor = np.loadtxt(
-        'mass_variance_multiplier.txt', dtype=float, unpack=True)
+        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
     n = len(counts)
     sigma_data = sigma[:n]
     factor_data = factor[:n]
@@ -79,7 +80,7 @@ def plot_hmf_sigma(ax):
         y_eval = eval_fcn(plot_fcn[idx], x)
         logy = np.where(y_eval > 0, np.log10(y_eval), -300.0)
         ax.plot(sigma_eval, logy, color=ESR_COLOURS[rank], lw=1.4,
-                label='ESR {}'.format(rank + 1), zorder=5)
+                label='ESR rank {}'.format(rank + 1), zorder=5)
 
     # Literature functions
     for key in ['P.Sch.', 'War.', 'Tin.']:
@@ -106,5 +107,5 @@ if __name__ == '__main__':
     ax.legend(fontsize=10, loc='upper right')
     ax.set_title('HMF extrapolation', fontsize=13, fontweight='bold')
     plt.tight_layout()
-    plt.savefig('Final Plots/HMF_extrapolation_sigma.pdf', dpi=200, bbox_inches='tight')
-    print("Saved Final Plots/HMF_extrapolation_sigma.pdf")
+    plt.savefig('Final_Plots/HMF_extrapolation_sigma.pdf', dpi=200, bbox_inches='tight')
+    print("Saved Final_Plots/HMF_extrapolation_sigma.pdf")

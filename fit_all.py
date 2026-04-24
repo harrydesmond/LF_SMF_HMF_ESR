@@ -608,17 +608,17 @@ def run_galaxy_esr_fits(sim_name, comp, data_dir='.'):
     # Redirect fn_dir to a local writable copy so ESR can write previous_eqns files
     # while still reading the equation lists from the original (read-only) location
     # Update this path to point to your ESR function library
-    amelia_fn_dir = os.path.join(data_dir, 'esr', 'function_library', 'base_e_maths')
+    fn_dir = os.path.join(data_dir, 'esr', 'function_library', 'base_e_maths')
     local_fn_dir = os.path.join(os.getcwd(), 'function_library_local', 'base_e_maths')
     if rank == 0:
         compl_dir = os.path.join(local_fn_dir, 'compl_%i' % comp)
         os.makedirs(compl_dir, exist_ok=True)
         # Symlink the equation files into our local dir so ESR can find them
         # Skip previous_eqns files — ESR will recreate them and needs write access
-        for fname in os.listdir(os.path.join(amelia_fn_dir, 'compl_%i' % comp)):
+        for fname in os.listdir(os.path.join(fn_dir, 'compl_%i' % comp)):
             if fname.startswith('previous_eqns'):
                 continue
-            src = os.path.join(amelia_fn_dir, 'compl_%i' % comp, fname)
+            src = os.path.join(fn_dir, 'compl_%i' % comp, fname)
             dst = os.path.join(compl_dir, fname)
             if not os.path.exists(dst):
                 os.symlink(src, dst)
@@ -628,7 +628,7 @@ def run_galaxy_esr_fits(sim_name, comp, data_dir='.'):
             os.remove(prev_eqns)
         # Also symlink lower-complexity dirs (needed for ignore_previous_eqns)
         for c in range(1, comp):
-            src_dir = os.path.join(amelia_fn_dir, 'compl_%i' % c)
+            src_dir = os.path.join(fn_dir, 'compl_%i' % c)
             dst_dir = os.path.join(local_fn_dir, 'compl_%i' % c)
             if os.path.isdir(src_dir) and not os.path.exists(dst_dir):
                 os.symlink(src_dir, dst_dir)

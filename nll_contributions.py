@@ -21,6 +21,7 @@ Dependencies:
 
 import numpy as np
 import os
+import setup_paths  # noqa: F401 — ensures Plots/ and Final_Plots/ exist
 from matplotlib import pyplot as plt
 from pytexit import py2tex
 import matplotlib.cm as cm

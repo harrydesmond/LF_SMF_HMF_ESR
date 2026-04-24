@@ -856,7 +856,7 @@ if __name__ == '__main__':
         create_all_plots(zipped, hmf_sims)
 
     else:
-        print("Usage: python3 sample_top_200_neater.py [step1|step2|step3]")
+        print("Usage: python3 sample_top_200.py [step1|step2|step3]")
         print("  step1: Regenerate top 500 list from 10 comprehensive sims")
         print("  step2: Fit top 200 to all 100 simulations")
         print("  step3: Generate plots from fitted results")

@@ -1,5 +1,6 @@
 
 import os
+import setup_paths  # noqa: F401 — ensures Plots/ and Final_Plots/ exist
 import numpy as np
 from matplotlib import pyplot as plt
 import string

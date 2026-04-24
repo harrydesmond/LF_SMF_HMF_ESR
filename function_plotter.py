@@ -1,24 +1,5 @@
-"""Plot best-fit ESR and literature functions overlaid on LF, SMF, and HMF data.
-
-Produces publication figures with three vertically stacked panels per dataset:
-  - Top:    data points with best-fit curves (ESR, Schechter, Bernardi, etc.)
-  - Middle: uncertainty-normalised residuals
-  - Bottom: per-bin delta-NLL contributions relative to the best ESR function
-
-Figures produced:
-  - LF + SMF combined (Sersic and cmodel): Final_Plots/LF_SMF_functions.pdf
-  - HMF (Quijote realisation 50):          Final_Plots/HMF_functions.pdf
-
-Inputs:
-    - *_final_functions.txt : function definitions with best-fit parameters
-      (semicolon-delimited: source, complexity, DL, NLL, plot_fcn, blank_fcn)
-    - *.txt data files      : binned LF/SMF/HMF data
-    - mass_variance_multiplier.txt : sigma(M) and d(ln sigma)/d(log M) for HMF
-
-Dependencies:
-    numpy, matplotlib, pytexit, scipy
-"""
-
+import matplotlib
+matplotlib.use('Agg')
 import numpy as np
 from matplotlib import pyplot as plt
 from pytexit import py2tex
@@ -26,6 +7,7 @@ from scipy.special import gamma as Gamma
 from matplotlib.lines import Line2D
 import matplotlib.gridspec as gridspec
 import os
+import setup_paths  # noqa: F401 — ensures Plots/ and Final_Plots/ exist
 from scipy.stats import poisson
 
 gamma = Gamma  # alias so eval() of Bernardi functions works
@@ -47,7 +29,7 @@ def load_data(data_set):
         sigma = sigma[:len(counts)]
         factor = factor[:len(counts)]
         x = sigma
-        M = logM
+        M = logM + np.log10(0.6711)  # convert M_sun to h^{-1}M_sun
         Veff = 1e9 / 0.6711**3
         delta_logm = 0.2
         y = np.log10(counts / (Veff * delta_logm))
@@ -84,7 +66,7 @@ def load_data(data_set):
     }
 
 
-def plot_dataset(data_set, colour, ax_data, ax_res, ax_nll, found, is_hmf=False, asymmetric_errors=True):
+def plot_dataset(data_set, colour, ax_data, ax_res, ax_nll, found, is_hmf=False, asymmetric_errors=True, skip_sources=()):
     """Plot data, residuals, and delta-NLL for a single dataset on given axes."""
     d = load_data(data_set)
     source, comp, plot_fcn, blank_fcn = d['source'], d['comp'], d['plot_fcn'], d['blank_fcn']
@@ -102,7 +84,7 @@ def plot_dataset(data_set, colour, ax_data, ax_res, ax_nll, found, is_hmf=False,
         x_label = 'M'
 
     if 'Ser' in data_set:
-        ds_label = 'Sersic'
+        ds_label = 'Sérsic'
     elif 'cmodel' in data_set:
         ds_label = 'cmodel'
     else:
@@ -138,6 +120,8 @@ def plot_dataset(data_set, colour, ax_data, ax_res, ax_nll, found, is_hmf=False,
             break
 
     for idx, fcn in enumerate(plot_fcn):
+        if source[idx] in skip_sources:
+            continue
         y_fcn = eval(fcn.replace("log", "np.log").replace("Abs", "abs").replace("exp", "np.exp"))
         y_fcn = _as_x_array(y_fcn)
         predicted = y_fcn * (factor * Veff * delta_logm)
@@ -179,6 +163,24 @@ def plot_dataset(data_set, colour, ax_data, ax_res, ax_nll, found, is_hmf=False,
             ax_res.plot(M, (y_plot - y) / y_err, color=colour)
             # Skip delta-NLL for best ESR: identically zero by construction (not shown)
 
+        elif source[idx] == 'Ber.orig':
+            y_plot = np.log10(y_fcn * factor)
+            lbl = 'Bernardi (orig.)' if 'Ber.orig' not in found else None
+            if lbl:
+                found.append('Ber.orig')
+            ax_data.plot(M, y_plot, color=colour, linestyle='-.', label=lbl)
+            ax_res.plot(M, (y_plot - y) / y_err, color=colour, linestyle='-.')
+            ax_nll.plot(M, nll_contributions, color=colour, linestyle='-.')
+
+        elif source[idx] == 'DblSch.':
+            y_plot = np.log10(y_fcn * factor)
+            lbl = 'Dbl. Schechter' if 'DblSch.' not in found else None
+            if lbl:
+                found.append('DblSch.')
+            ax_data.plot(M, y_plot, color=colour, linestyle=(0, (5, 5)), label=lbl)
+            ax_res.plot(M, (y_plot - y) / y_err, color=colour, linestyle=(0, (5, 5)))
+            ax_nll.plot(M, nll_contributions, color=colour, linestyle=(0, (5, 5)))
+
         elif 'Ber.' in source[idx]:
             y_plot = np.log10(y_fcn * factor)
             lbl = 'Bernardi' if source[idx] not in found else None
@@ -192,7 +194,7 @@ def plot_dataset(data_set, colour, ax_data, ax_res, ax_nll, found, is_hmf=False,
             continue
 
     # Data points
-    ax_data.scatter(M, y, color=colour, marker='x', s=20, zorder=5)
+    ax_data.scatter(M, y, color=colour, marker='o', s=30, zorder=5, edgecolors='none')
     if asymmetric_errors:
         # Exact asymmetric Poisson 68% confidence intervals (16th and 84th percentiles)
         n = counts
@@ -210,9 +212,9 @@ def plot_dataset(data_set, colour, ax_data, ax_res, ax_nll, found, is_hmf=False,
     ax_res.axhline(0, color='grey', lw=0.5)
     ax_nll.axhline(0, color='grey', lw=0.5)
 
-    ax_data.set_xlim([min(M) * 0.999, max(M) * 1.001])
-    ax_res.set_xlim([min(M) * 0.999, max(M) * 1.001])
-    ax_nll.set_xlim([min(M) * 0.999, max(M) * 1.001])
+    ax_data.set_xlim([min(M) - 0.05, max(M) + 0.05])
+    ax_res.set_xlim([min(M) - 0.05, max(M) + 0.05])
+    ax_nll.set_xlim([min(M) - 0.05, max(M) + 0.05])
 
 
 def overlay_best_models(data_set, colour, ax_data, ref_data_set='LF_Ser_L'):
@@ -246,7 +248,7 @@ def overlay_best_models(data_set, colour, ax_data, ref_data_set='LF_Ser_L'):
 
     for idx, fcn in enumerate(plot_fcn):
         src = source[idx]
-        if not (idx == best_esr_idx or src == 'Sch.' or 'Ber.' in src):
+        if not (idx == best_esr_idx or src == 'Sch.' or 'Ber.' in src or src == 'DblSch.'):
             continue
         y_fcn = eval(fcn.replace("log", "np.log").replace("Abs", "abs").replace("exp", "np.exp"))
         y_fcn = _as_x_array(y_fcn)
@@ -254,6 +256,10 @@ def overlay_best_models(data_set, colour, ax_data, ref_data_set='LF_Ser_L'):
             y_plot = np.log10(y_fcn * factor)
         if src == 'Sch.':
             ax_data.plot(M, y_plot, color=colour, linestyle='--')
+        elif src == 'Ber.orig':
+            ax_data.plot(M, y_plot, color=colour, linestyle='-.')
+        elif src == 'DblSch.':
+            ax_data.plot(M, y_plot, color=colour, linestyle=(0, (5, 5)))
         elif 'Ber.' in src:
             ax_data.plot(M, y_plot, color=colour, linestyle=(0, (1, 1)))
         else:
@@ -278,10 +284,11 @@ ax_smf_res = fig.add_subplot(outer[1, 1], sharex=ax_smf_data, sharey=ax_lf_res)
 ax_smf_nll = fig.add_subplot(outer[2, 1], sharex=ax_smf_data, sharey=ax_lf_nll)
 
 found = []
-plot_dataset('LF_Ser_L', cm(0), ax_lf_data, ax_lf_res, ax_lf_nll, found)
-plot_dataset('LF_cmodel_L', cm(1), ax_lf_data, ax_lf_res, ax_lf_nll, found)
-plot_dataset('SMF_Ser_M', cm(0), ax_smf_data, ax_smf_res, ax_smf_nll, found)
-plot_dataset('SMF_cmodel_M', cm(1), ax_smf_data, ax_smf_res, ax_smf_nll, found)
+skip = ('DblSch.', 'Ber.orig')
+plot_dataset('LF_Ser_L', cm(0), ax_lf_data, ax_lf_res, ax_lf_nll, found, skip_sources=skip)
+plot_dataset('LF_cmodel_L', cm(1), ax_lf_data, ax_lf_res, ax_lf_nll, found, skip_sources=skip)
+plot_dataset('SMF_Ser_M', cm(0), ax_smf_data, ax_smf_res, ax_smf_nll, found, skip_sources=skip)
+plot_dataset('SMF_cmodel_M', cm(1), ax_smf_data, ax_smf_res, ax_smf_nll, found, skip_sources=skip)
 
 # Y-axis labels (left side)
 ax_lf_data.set_ylabel(r'$\log\!\left(\phi / {\rm Mpc^{-3} \, dex^{-1}}\right)$', fontsize=12)
@@ -341,17 +348,21 @@ for h, l in zip(handles, labels):
         elif l == 'Bernardi':
             leg_handles.append(Line2D([], [], color='black', linestyle=(0, (1, 1))))
             leg_labels.append('Bernardi')
+        elif l == 'Bernardi (orig.)':
+            leg_handles.append(Line2D([], [], color='black', linestyle='-.'))
+            leg_labels.append('Bernardi (orig.)')
+        elif l == 'Dbl. Schechter':
+            leg_handles.append(Line2D([], [], color='black', linestyle=(0, (5, 5))))
+            leg_labels.append('Dbl. Schechter')
 
 # Add dataset colour legend
-leg_handles.append(Line2D([], [], color=cm(0), marker='x', linestyle='-', markersize=5))
-leg_labels.append('Sersic')
-leg_handles.append(Line2D([], [], color=cm(1), marker='x', linestyle='-', markersize=5))
+leg_handles.append(Line2D([], [], color=cm(0), marker='o', linestyle='-', markersize=5))
+leg_labels.append('Sérsic')
+leg_handles.append(Line2D([], [], color=cm(1), marker='o', linestyle='-', markersize=5))
 leg_labels.append('cmodel')
 
-fig.legend(leg_handles, leg_labels, loc='upper center', ncol=5, fontsize=11,
-           bbox_to_anchor=(0.5, 0.985), frameon=True)
-
-fig.subplots_adjust(top=0.90)
+ax_lf_data.legend(leg_handles, leg_labels, loc='lower left', fontsize=9,
+                  frameon=True)
 
 plt.savefig('Final_Plots/LF_SMF_functions.pdf', dpi=200, bbox_inches='tight')
 plt.show()
@@ -408,9 +419,13 @@ for h, l in zip(handles, labels):
             leg_handles.append(Line2D([], [], color='black', linestyle='--')); leg_labels.append('Schechter')
         elif l == 'Bernardi':
             leg_handles.append(Line2D([], [], color='black', linestyle=(0, (1, 1)))); leg_labels.append('Bernardi')
-leg_handles.append(Line2D([], [], color=cm(0), marker='x', linestyle='-', markersize=5)); leg_labels.append('Sersic')
-leg_handles.append(Line2D([], [], color=cm(1), marker='x', linestyle='-', markersize=5)); leg_labels.append('cmodel')
-fig.legend(leg_handles, leg_labels, loc='upper center', ncol=5, fontsize=11, bbox_to_anchor=(0.5, 0.985), frameon=True)
+        elif l == 'Bernardi (orig.)':
+            leg_handles.append(Line2D([], [], color='black', linestyle='-.')); leg_labels.append('Bernardi (orig.)')
+        elif l == 'Dbl. Schechter':
+            leg_handles.append(Line2D([], [], color='black', linestyle=(0, (5, 5)))); leg_labels.append('Dbl. Schechter')
+leg_handles.append(Line2D([], [], color=cm(0), marker='o', linestyle='-', markersize=5)); leg_labels.append('Sérsic')
+leg_handles.append(Line2D([], [], color=cm(1), marker='o', linestyle='-', markersize=5)); leg_labels.append('cmodel')
+fig.legend(leg_handles, leg_labels, loc='upper center', ncol=4, fontsize=10, bbox_to_anchor=(0.5, 0.995), frameon=True)
 fig.subplots_adjust(top=0.90)
 plt.savefig('Final_Plots/LF_SMF_functions_symmetric.pdf', dpi=200, bbox_inches='tight')
 plt.show()

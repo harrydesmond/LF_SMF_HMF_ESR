@@ -14,13 +14,13 @@ import numpy as np
 import os
 import sys
 
-os.chdir('/users/hdesmond/Amelia_code')
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 hmf_sims = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
 
 
 def format_function(fcn):
-    """Normalise function strings for deduplication (from sample_top_200_neater.py)."""
+    """Normalise function strings for deduplication (from sample_top_200.py)."""
     fcn = fcn.replace('a0', 'C').replace('a1', 'C').replace('a2', 'C').replace('a3', 'C')
     fcn = fcn.replace('exp(C)', 'C').replace('1/C', 'C')
     fcn = fcn.replace('Abs(C + x)', 'Abs(C - x)')

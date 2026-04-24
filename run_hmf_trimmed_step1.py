@@ -1,6 +1,6 @@
 """Step 1: Run full ESR on trimmed HMF data for 10 representative sims.
 
-Creates trimmed data files (dropping 2 lowest-mass bins from hmf_*_new.dat),
+Creates trimmed data files (dropping 2 lowest-mass bins from hmf_*.dat),
 then runs the full ESR pipeline (test_all, test_all_Fisher, match, combine_DL)
 for complexities 4-10 on each of the 10 representative sims.
 
@@ -29,7 +29,7 @@ hmf_sim = int(sys.argv[1])
 comp = int(sys.argv[2])
 
 sys.path.insert(0, '/mnt/zfsusers/ameliaford/original_ESR/ESR')
-os.chdir('/users/hdesmond/Amelia_code')
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -38,7 +38,7 @@ rank = comm.Get_rank()
 # Create trimmed data file if it doesn't exist
 trimmed_path = f'hmf_files/hmf_{hmf_sim}_trimmed.dat'
 if rank == 0:
-    src = f'/mnt/zfsusers/ameliaford/original_ESR/ESR/hmf_files/hmf_{hmf_sim}_new.dat'
+    src = f'data/hmf_files/hmf_{hmf_sim}.dat'
     data = np.loadtxt(src)
     trimmed = data[2:]  # drop 2 lowest-mass (highest-sigma) bins
     os.makedirs('hmf_files', exist_ok=True)
@@ -51,13 +51,7 @@ if rank == 0:
 
 comm.Barrier()
 
-# Import the patched ESR pipeline functions from fit_all_neater
-# We need to import carefully to avoid running module-level code
-import importlib.util
-spec = importlib.util.spec_from_file_location("fit_all_neater",
-    "/users/hdesmond/Amelia_code/fit_all_neater.py")
-
-# Actually, the simplest approach: use the ESR library directly
+# Use the ESR library directly
 from esr.fitting.likelihood import PoissonLikelihood
 import esr.fitting.test_all
 import esr.fitting.test_all_Fisher
@@ -72,7 +66,7 @@ likelihood = PoissonLikelihood(trimmed_path, run_name,
 
 # Use Amelia's function library directly, but create a per-job writable overlay.
 # Each job (sim+comp) gets its own isolated dir to avoid race conditions.
-amelia_fn_dir = '/mnt/zfsusers/ameliaford/original_ESR/ESR/esr/function_library/base_e_maths'
+fn_dir = '/mnt/zfsusers/ameliaford/original_ESR/ESR/esr/function_library/base_e_maths'
 local_fn_dir = os.path.join(os.getcwd(), f'function_library_sim{hmf_sim}_comp{comp}', 'base_e_maths')
 
 if rank == 0:
@@ -81,13 +75,13 @@ if rank == 0:
 
     # Symlink all OTHER complexity dirs to Amelia's (read-only, no conflicts)
     for c in range(1, 12):
-        src_dir = os.path.join(amelia_fn_dir, f'compl_{c}')
+        src_dir = os.path.join(fn_dir, f'compl_{c}')
         dst_dir = os.path.join(local_fn_dir, f'compl_{c}')
         if c != comp and os.path.exists(src_dir) and not os.path.exists(dst_dir):
             os.symlink(src_dir, dst_dir)
 
     # Copy files for our complexity (use copy, not copy2, to get writable perms)
-    src_dir = os.path.join(amelia_fn_dir, f'compl_{comp}')
+    src_dir = os.path.join(fn_dir, f'compl_{comp}')
     for fname in os.listdir(src_dir):
         src_file = os.path.join(src_dir, fname)
         dst_file = os.path.join(compl_dir, fname)

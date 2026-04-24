@@ -19,7 +19,7 @@ from scipy.interpolate import interp1d
 import warnings
 warnings.filterwarnings('ignore')
 
-os.chdir('/home/harry/Amelia_code')
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # ── Colour scheme (matching untrimmed) ──────────────────────────────────────
 ESR_COLOURS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
@@ -46,7 +46,7 @@ def make_func(template):
 # ── Data loading ────────────────────────────────────────────────────────────
 
 # Mass variance relation — use DIRECT per-bin values, not interpolation
-logM_mvm, sigma_mvm, factor_mvm = np.loadtxt('mass_variance_multiplier.txt', dtype=float, unpack=True)
+logM_mvm, sigma_mvm, factor_mvm = np.loadtxt('data/mass_variance_multiplier.txt', dtype=float, unpack=True)
 # For interpolation on fine grids (extrapolation plots), use sigma-based interp
 factor_of_sigma = interp1d(sigma_mvm, factor_mvm, kind='cubic', fill_value='extrapolate')
 logM_of_sigma = interp1d(sigma_mvm, logM_mvm, kind='cubic', fill_value='extrapolate')
@@ -58,7 +58,7 @@ delta_logm = 0.2
 
 
 def load_hmf_data(sim_id, trimmed=False):
-    data = np.loadtxt(f'hmf_files/hmf_{sim_id}_new.dat')
+    data = np.loadtxt(f'data/hmf_files/hmf_{sim_id}.dat')
     n_full = len(data)
     if trimmed:
         data = data[2:]
@@ -337,7 +337,7 @@ print("Saved Pareto_HMF_trimmed")
 print("\n=== Plot 3: HMF functions (trimmed, sim 50) ===")
 
 sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data(50, trimmed=True)
-top4_funcs = [(r['function'], f"ESR {i+1}") for i, r in enumerate(esr_results[:4])]
+top4_funcs = [(esr_results[0]['function'], "ESR best")]
 
 fig, (ax_data, ax_res, ax_nll) = plt.subplots(
     3, 1, figsize=(7, 8), gridspec_kw={'height_ratios': [3, 1, 1]})
@@ -361,12 +361,12 @@ for idx, (func, label) in enumerate(top4_funcs):
     phi_vals = f_vals * factor_50
     y_plot = np.log10(np.where(phi_vals > 0, phi_vals, 1e-300))
     ax_data.plot(logM_50, y_plot, color=ESR_COLOURS[idx], lw=1.4, label=label, zorder=5)
-    ax_res.plot(logM_50, (y_plot - y_50) / y_err_50, color=ESR_COLOURS[idx], lw=0.8, marker='o', ms=3)
+    ax_res.plot(logM_50, (y_plot - y_50) / y_err_50, color=ESR_COLOURS[idx], lw=0.8)
     if idx > 0:
         lam = f_vals * factor_50 * Veff * delta_logm
         lam = np.where(lam > 0, lam, 1e-300)
         ax_nll.plot(logM_50, (lam - counts_50 * np.log(lam)) - nll1_bins,
-                    color=ESR_COLOURS[idx], lw=0.8, marker='o', ms=3)
+                    color=ESR_COLOURS[idx], lw=0.8)
 
 for name in ['P.Sch.', 'War.', 'Tin.']:
     f_lit = eval_lit(name, sigma_50)
@@ -377,16 +377,29 @@ for name in ['P.Sch.', 'War.', 'Tin.']:
     ax_data.plot(logM_50, y_plot, color=LIT_COLOURS[name], ls=LIT_STYLES[name],
                  lw=1.6, label=LIT_LABELS[name], zorder=4)
     ax_res.plot(logM_50, (y_plot - y_50) / y_err_50, color=LIT_COLOURS[name],
-                ls=LIT_STYLES[name], lw=0.8, marker='o', ms=3)
+                ls=LIT_STYLES[name], lw=0.8)
     lam = f_lit * factor_50 * Veff * delta_logm
     lam = np.where(lam > 0, lam, 1e-300)
     ax_nll.plot(logM_50, (lam - counts_50 * np.log(lam)) - nll1_bins,
-                color=LIT_COLOURS[name], ls=LIT_STYLES[name], lw=0.8, marker='o', ms=3)
+                color=LIT_COLOURS[name], ls=LIT_STYLES[name], lw=0.8)
+
+# Best PS-like passing physicality checks (rank 14, Eq 10)
+_ps_params = [3.34541494, -0.10935841, -0.17751593]
+with np.errstate(all='ignore'):
+    _f_ps = np.power(np.abs(_ps_params[0]), (_ps_params[1] - np.power(np.abs(_ps_params[2]), np.log(sigma_50)))) / sigma_50
+_phi_ps = _f_ps * factor_50
+_y_ps = np.log10(np.where(_phi_ps > 0, _phi_ps, 1e-300))
+ax_data.plot(logM_50, _y_ps, color='darkcyan', lw=1.4, label=r'PS-like (Eq. 10)', zorder=5)
+ax_res.plot(logM_50, (_y_ps - y_50) / y_err_50, color='darkcyan', lw=0.8)
+_lam_ps = _f_ps * factor_50 * Veff * delta_logm
+_lam_ps = np.where(_lam_ps > 0, _lam_ps, 1e-300)
+ax_nll.plot(logM_50, (_lam_ps - counts_50 * np.log(_lam_ps)) - nll1_bins,
+            color='darkcyan', lw=0.8)
 
 ax_data.set_ylabel(r'$\log\!\left(\phi / {\rm Mpc^{-3} \, dex^{-1}}\right)$', fontsize=16)
 ax_res.set_ylabel(r'$\frac{\rm Residual}{\rm Uncertainty}$', fontsize=16)
 ax_nll.set_ylabel(r'$\Delta$NLL', fontsize=16)
-ax_nll.set_xlabel(r'$\log(M_{\rm halo} / h^{-1} M_\odot)$', fontsize=16)
+ax_nll.set_xlabel(r'$\log(M_h\,/\,h^{-1}M_\odot)$', fontsize=16)
 ax_res.axhline(0, color='grey', ls=':', lw=0.5)
 ax_nll.axhline(0, color='grey', ls=':', lw=0.5)
 ax_res.set_ylim([-6, 6])
