@@ -36,7 +36,7 @@ if os.path.exists('histogram_data.txt'):
 
 
 
-# --- Stacked Rank Plot (untrimmed; formatting matches Fig 6) --- #
+# --- Stacked Rank Plot (extended; formatting matches Fig 6) --- #
 hmf_sims = np.arange(0, 100, 1)
 colors = ['#FFD700', '#C0C0C0', '#CD7F32', '#6E7B8B', '#445577']
 sub_categories = ['1st', '2nd', '3rd', '4th', '5th']

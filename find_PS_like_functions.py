@@ -14,8 +14,8 @@ Usage:
     python3 find_PS_like_functions.py --extended   # full range (appendix)
 
 Inputs (default / --extended):
-  - hmf_combined_DL_trimmed_new.txt / hmf_combined_DL.txt  (top-200 combined ranking)
-  - hmf_data/hmf_<sim>_data/final_all_trimmed.txt / final_all.txt  (sims 0,10,...,90)
+  - hmf_combined_DL_fiducial.txt / hmf_combined_DL.txt  (top-200 combined ranking)
+  - hmf_data/hmf_<sim>_data/final_all_fiducial.txt / final_all.txt  (sims 0,10,...,90)
 """
 
 import argparse
@@ -91,11 +91,11 @@ def main():
     parser.add_argument('--extended', action='store_true',
                         help='Use full-range ESR outputs. Default: fiducial (restricted range).')
     args = parser.parse_args()
-    trimmed = not args.extended
+    fiducial = not args.extended
 
-    if trimmed:
-        combined_file = 'hmf_combined_DL_trimmed_new.txt'
-        per_sim_filename = 'final_all_trimmed.txt'
+    if fiducial:
+        combined_file = 'hmf_combined_DL_fiducial.txt'
+        per_sim_filename = 'final_all_fiducial.txt'
     else:
         combined_file = 'hmf_combined_DL.txt'
         per_sim_filename = 'final_all.txt'

@@ -1,13 +1,13 @@
-"""Step 2: Identify top 200 unique functions from trimmed ESR results.
+"""Step 2: Identify top 200 unique functions from fiducial ESR results.
 
 After Step 1 completes, this script:
 1. Loads the per-complexity results from the 10 representative sims
 2. Ranks all unique functions by DL within each sim
 3. Averages ranks across sims
 4. Selects the 200 functions with lowest mean rank
-5. Saves to top_500_trimmed.txt
+5. Saves to top_500_fiducial.txt
 
-Usage: python3 run_hmf_trimmed_step2.py
+Usage: python3 run_hmf_fiducial_step2.py
 """
 
 import numpy as np
@@ -45,7 +45,7 @@ def load_sim_results(sim):
     """Load all complexity results for one sim, return dict: function -> DL."""
     all_funcs = {}
     for comp in range(4, 11):
-        filepath = f'hmf_trimmed_{sim}_data/final_{comp}_trimmed.dat'
+        filepath = f'hmf_fiducial_{sim}_data/final_{comp}_fiducial.dat'
         if not os.path.exists(filepath):
             print(f"  WARNING: missing {filepath}")
             continue
@@ -146,7 +146,7 @@ def main():
     func_mean_ranks.sort(key=lambda x: x[1])
 
     # Save top 500 (we'll use top 200 for Step 3)
-    outfile = 'top_500_trimmed.txt'
+    outfile = 'top_500_fiducial.txt'
     with open(outfile, 'w') as f:
         for func, mean_rank, n_sims in func_mean_ranks[:500]:
             f.write(func + '\n')

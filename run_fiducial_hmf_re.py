@@ -1,11 +1,11 @@
 """Follow-up: fit the 17 functions containing re()/im() after stripping to real form.
 
 After the main Step 3 job completes, this fits the stripped versions to all 100 sims
-and appends results to the existing final_all_trimmed.txt files.
+and appends results to the existing final_all_fiducial.txt files.
 
 Usage:
-    addqueue -q cmb -n 2x20 -m 4 -c "HMF trimmed step3: re/im functions" \
-        /usr/bin/env LD_LIBRARY_PATH=... PYTHONPATH=... python3 run_trimmed_hmf_re.py
+    addqueue -q cmb -n 2x20 -m 4 -c "HMF fiducial step3: re/im functions" \
+        /usr/bin/env LD_LIBRARY_PATH=... PYTHONPATH=... python3 run_fiducial_hmf_re.py
 """
 
 import sys
@@ -82,20 +82,20 @@ def strip_re_im(func_str):
     return result
 
 
-def create_trimmed_data(sim_id):
-    """Create a trimmed data file (drop first 2 rows)."""
+def create_fiducial_data(sim_id):
+    """Create a fiducial data file (drop first 2 rows)."""
     src = f'data/hmf_files/hmf_{sim_id}.dat'
     data = np.loadtxt(src)
-    trimmed = data[2:]
-    dst_rel = f'hmf_files/hmf_{sim_id}_trimmed.dat'
+    fiducial = data[2:]
+    dst_rel = f'hmf_files/hmf_{sim_id}_fiducial.dat'
     dst_abs = os.path.join(os.getcwd(), dst_rel)
     os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
-    np.savetxt(dst_abs, trimmed, fmt='%.18e')
+    np.savetxt(dst_abs, fiducial, fmt='%.18e')
     return dst_rel
 
 
 def fit_str(func_str, data_path_rel):
-    """Fit a single function string to trimmed data."""
+    """Fit a single function string to fiducial data."""
     basis_functions = [["x", "a"],
                        ["inv", "exp", "log", "abs"],
                        ["+", "*", "-", "/", "pow"]]
@@ -109,7 +109,7 @@ def fit_str(func_str, data_path_rel):
     if Nconv_new <= 0 or Niter_new <= 0 or Nconv_new > Niter_new:
         return np.nan, np.nan, None
 
-    likelihood = PoissonLikelihood(data_path_rel, 'poisson_trimmed',
+    likelihood = PoissonLikelihood(data_path_rel, 'poisson_fiducial',
                                    data_dir='.', fn_set='base_e_maths')
 
     count = 0
@@ -133,14 +133,14 @@ def fit_str(func_str, data_path_rel):
 
 
 def run_sim(sim_id, re_functions):
-    """Fit re/im-stripped functions to one trimmed sim and append to results."""
+    """Fit re/im-stripped functions to one fiducial sim and append to results."""
     print(f'Rank {rank}: starting sim {sim_id} ({len(re_functions)} functions)', flush=True)
 
-    data_path_rel = create_trimmed_data(sim_id)
+    data_path_rel = create_fiducial_data(sim_id)
 
     # Read existing results to get current count for numbering
     outdir = f'hmf_data/hmf_{sim_id}_data'
-    outpath = os.path.join(outdir, 'final_all_trimmed.txt')
+    outpath = os.path.join(outdir, 'final_all_fiducial.txt')
     existing_count = 0
     existing_funcs = set()
     if os.path.exists(outpath):
@@ -183,7 +183,7 @@ def run_sim(sim_id, re_functions):
 
 if __name__ == '__main__':
     # Load functions with re/im and create stripped versions
-    with open('top_500_trimmed.txt') as f:
+    with open('top_500_fiducial.txt') as f:
         all_functions = [line.strip() for line in f][:200]
 
     re_functions = []

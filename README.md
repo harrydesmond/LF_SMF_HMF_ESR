@@ -42,7 +42,7 @@ sys.path.insert(0, '/home/harry/Symbolic_regression/ESR-main/')  # <-- edit this
 ```
 
 Appears in: `compute_combined_DL.py`, `fit_literature_all_sims.py`,
-`hmf_covariance_analysis.py`, `build_trimmed_table.py`, `Pareto_plotter.py`.
+`hmf_covariance_analysis.py`, `build_fiducial_table.py`, `Pareto_plotter.py`.
 
 **ESR library path (cluster scripts).** Same meaning, but the cluster
 scripts hardcode a different path that you likewise need to update:
@@ -51,12 +51,12 @@ scripts hardcode a different path that you likewise need to update:
 sys.path.insert(0, '/mnt/zfsusers/ameliaford/original_ESR/ESR')  # <-- edit this
 ```
 
-Appears in: `run_hmf_trimmed_step1.py`, `run_trimmed_hmf.py`,
-`run_trimmed_hmf_re.py`, `run_trimmed_hmf_recovery.py`. (`sample_top_200.py`
+Appears in: `run_hmf_fiducial_step1.py`, `run_fiducial_hmf.py`,
+`run_fiducial_hmf_re.py`, `run_fiducial_hmf_recovery.py`. (`sample_top_200.py`
 has a commented-out placeholder on line 38 — uncomment and edit only if ESR
 is not already on your `PYTHONPATH`.)
 
-**ESR function-library path (`run_hmf_trimmed_step1.py` only).** On first
+**ESR function-library path (`run_hmf_fiducial_step1.py` only).** On first
 use, edit line 69 to point to the `base_e_maths` function-library directory
 inside your ESR installation:
 
@@ -169,8 +169,8 @@ in the main text; pass `--extended` for the full-range (appendix) version.
 `find_PS_like_functions.py` in fiducial mode produces the "26 PS-like in
 top 200" number quoted in Sec 4.3. The fiducial `hmf_covariance_analysis.py`
 is the 15-bin analysis quoted in Sec 4.5 (median var/mean ≈ 0.95,
-max |ρ| ≈ 0.34); it writes `hmf_covariance_results[_trimmed].txt` and
-`Final_Plots/hmf_correlation_matrix[_trimmed].pdf`.
+max |ρ| ≈ 0.34); it writes `hmf_covariance_results[_fiducial].txt` and
+`Final_Plots/hmf_correlation_matrix[_fiducial].pdf`.
 
 Results files written by these scripts: `fisher_det_results.txt`,
 `double_schechter_results.txt`, `param_uncertainties_results.txt`,
@@ -201,16 +201,16 @@ search on this restricted range. The scripts below implement this pipeline:
 
 | Script | Description | Runs on |
 |--------|-------------|---------|
-| `run_hmf_trimmed_step1.py` | Full ESR (complexities 4–10) on 10 representative sims | Cluster (MPI) |
-| `run_hmf_trimmed_step2.py` | Identify top 200 by mean rank → `top_500_trimmed.txt` | Cluster |
-| `run_trimmed_hmf.py` | Refit top 200 to all 100 sims | Cluster (MPI) |
-| `run_trimmed_hmf_recovery.py` | Recovery for timed-out sims + re/im-stripped fits | Cluster (MPI) |
-| `run_trimmed_hmf_re.py` | Fit functions with sympy `re()`/`im()` artifacts | Cluster (MPI) |
-| `build_trimmed_table.py` | Paper table data | Local |
-| `trimmed_checks_and_plots.py` | Physicality checks + restricted-range plots | Local |
-| `generate_untrimmed_appendix.py` | Appendix HMF Pareto + extrapolation plots | Local |
+| `run_hmf_fiducial_step1.py` | Full ESR (complexities 4–10) on 10 representative sims | Cluster (MPI) |
+| `run_hmf_fiducial_step2.py` | Identify top 200 by mean rank → `top_500_fiducial.txt` | Cluster |
+| `run_fiducial_hmf.py` | Refit top 200 to all 100 sims | Cluster (MPI) |
+| `run_fiducial_hmf_recovery.py` | Recovery for timed-out sims + re/im-stripped fits | Cluster (MPI) |
+| `run_fiducial_hmf_re.py` | Fit functions with sympy `re()`/`im()` artifacts | Cluster (MPI) |
+| `build_fiducial_table.py` | Paper table data | Local |
+| `fiducial_checks_and_plots.py` | Physicality checks + restricted-range plots | Local |
+| `generate_extended_appendix.py` | Appendix HMF Pareto + extrapolation plots | Local |
 
-`generate_untrimmed_appendix.py` produces the full-range Pareto +
+`generate_extended_appendix.py` produces the full-range Pareto +
 extrapolation figures for Appendix A, with enlarged fonts matching Fig A1.
 It imports `make_single_panel_figure` from `Pareto_plotter.py`.
 
@@ -222,8 +222,8 @@ Notes on the plotting scripts:
   has no side effects.
 - `extrapolation_plotter.py` overlays the best PS-like ESR function (rank
   14, Eq 10) on both HMF panels of `extrapolation_behaviour.pdf`.
-- `trimmed_checks_and_plots.py` adds that PS-like function to all three
-  panels of `HMF_functions_trimmed.pdf` (Fig 5).
+- `fiducial_checks_and_plots.py` adds that PS-like function to all three
+  panels of `HMF_functions_fiducial.pdf` (Fig 5).
 - `function_plotter.py` accepts a `skip_sources` argument so the Fig 1
   panels can drop `DblSch.`/`Ber.orig` without editing the
   final-functions files.
@@ -236,31 +236,31 @@ Produced by the fitting scripts and consumed by plotting/analysis scripts:
 |------|-------------|-------------|
 | `*_final_functions.txt` | `build_final_functions.py` | Top ESR + literature functions with parameters |
 | `top_500_all.txt` | `sample_top_200.py step1` | Top 500 unique HMF functions (full range) |
-| `top_500_trimmed.txt` | `run_hmf_trimmed_step2.py` | Top 500 (restricted range) |
+| `top_500_fiducial.txt` | `run_hmf_fiducial_step2.py` | Top 500 (restricted range) |
 | `hmf_data/hmf_<sim>_data/final_all.txt` | `sample_top_200.py step2` | Per-sim fits (full range) |
-| `hmf_data/hmf_<sim>_data/final_all_trimmed.txt` | `run_trimmed_hmf.py` | Per-sim fits (restricted range) |
-| `hmf_combined_DL_trimmed_new.txt` | `compute_combined_DL.py` | Combined DL ranking (fiducial) |
+| `hmf_data/hmf_<sim>_data/final_all_fiducial.txt` | `run_fiducial_hmf.py` | Per-sim fits (restricted range) |
+| `hmf_combined_DL_fiducial.txt` | `compute_combined_DL.py` | Combined DL ranking (fiducial) |
 | `hmf_combined_DL.txt` | `compute_combined_DL.py --extended` | Combined DL ranking (full range) |
-| `literature_fits_trimmed.txt` | `fit_literature_all_sims.py` | Per-sim literature fits (fiducial) |
-| `literature_combined_DL_trimmed.txt` | `fit_literature_all_sims.py` | Combined literature DL (fiducial) |
+| `literature_fits_fiducial.txt` | `fit_literature_all_sims.py` | Per-sim literature fits (fiducial) |
+| `literature_combined_DL_fiducial.txt` | `fit_literature_all_sims.py` | Combined literature DL (fiducial) |
 | `literature_fits_all_sims.txt` | `fit_literature_all_sims.py --extended` | Per-sim literature fits (full range) |
 | `literature_combined_DL.txt` | `fit_literature_all_sims.py --extended` | Combined literature DL (full range) |
 | `ordered_gold.txt` | `sample_top_200.py step3` | Rank tally (full range) |
-| `ordered_gold_trimmed.txt` | `trimmed_checks_and_plots.py` | Rank tally (restricted range) |
+| `ordered_gold_fiducial.txt` | `fiducial_checks_and_plots.py` | Rank tally (restricted range) |
 | `all_paper_fitting_data.txt` | `fit_all.py` (paper mode) | Literature fits per dataset |
-| `hmf_50_final_functions_trimmed.txt` | `build_final_functions.py` ¹ | Per-complexity best + literature for sim 50 |
-| `hmf_trimmed_searchcomp.txt` | `build_searchcomp.py` | Function → search-complexity (fiducial) |
+| `hmf_50_final_functions_fiducial.txt` | `build_final_functions.py` ¹ | Per-complexity best + literature for sim 50 |
+| `hmf_fiducial_searchcomp.txt` | `build_searchcomp.py` | Function → search-complexity (fiducial) |
 | `hmf_func_gencomp.txt` ² | `build_searchcomp.py --extended` | Function → search-complexity (full range) |
 
 ¹ Exact command:
 ```
 python3 build_final_functions.py hmf_50 \
-    --combined hmf_combined_DL_trimmed_new.txt \
-    --esr-dir hmf_trimmed_50_data \
-    --outfile hmf_50_final_functions_trimmed.txt
+    --combined hmf_combined_DL_fiducial.txt \
+    --esr-dir hmf_fiducial_50_data \
+    --outfile hmf_50_final_functions_fiducial.txt
 ```
 
-² Consumed by `Pareto_plotter.py` and `generate_untrimmed_appendix.py`.
+² Consumed by `Pareto_plotter.py` and `generate_extended_appendix.py`.
 
 `*_final_functions.txt` is semicolon-delimited:
 `source;complexity;DL;NLL;plot_fcn;blank_fcn` (see *Key file format* below).
@@ -304,15 +304,15 @@ A typical end-to-end workflow:
    python3 build_final_functions.py SMF_cmodel_M
    python3 build_final_functions.py hmf_50 --combined hmf_combined_DL.txt
 
-6. Fiducial (trimmed) HMF pipeline — main text (§4 of the paper)
-   (Cluster: run_hmf_trimmed_step{1,2}.py, run_trimmed_hmf*.py)
+6. Fiducial (fiducial) HMF pipeline — main text (§4 of the paper)
+   (Cluster: run_hmf_fiducial_step{1,2}.py, run_fiducial_hmf*.py)
    python3 compute_combined_DL.py
    python3 fit_literature_all_sims.py
-   python3 build_final_functions.py hmf_50 --combined hmf_combined_DL_trimmed_new.txt \
-       --esr-dir hmf_trimmed_50_data --outfile hmf_50_final_functions_trimmed.txt
-   python3 build_searchcomp.py                 # -> hmf_trimmed_searchcomp.txt
-   python3 build_trimmed_table.py
-   python3 trimmed_checks_and_plots.py         # Figs 5, 6 + physicality checks
+   python3 build_final_functions.py hmf_50 --combined hmf_combined_DL_fiducial.txt \
+       --esr-dir hmf_fiducial_50_data --outfile hmf_50_final_functions_fiducial.txt
+   python3 build_searchcomp.py                 # -> hmf_fiducial_searchcomp.txt
+   python3 build_fiducial_table.py
+   python3 fiducial_checks_and_plots.py         # Figs 5, 6 + physicality checks
    python3 find_PS_like_functions.py           # "26 PS-like in top 200"
 
 7. Other analysis and plots
@@ -328,11 +328,11 @@ A typical end-to-end workflow:
    python3 compute_combined_DL.py --extended
    python3 fit_literature_all_sims.py --extended
    python3 build_searchcomp.py --extended      # -> hmf_func_gencomp.txt
-   python3 generate_untrimmed_appendix.py      # Appendix A figures
+   python3 generate_extended_appendix.py      # Appendix A figures
    python3 find_PS_like_functions.py --extended
 
 8. Covariance, Fisher and propagated-impact diagnostics — §4.5, §5
-   # fiducial 15-bin covariance (needs hmf_50_final_functions_trimmed.txt from §6)
+   # fiducial 15-bin covariance (needs hmf_50_final_functions_fiducial.txt from §6)
    python3 hmf_covariance_analysis.py
    python3 hmf_covariance_analysis.py --extended  # full-range (appendix)
    python3 fisher_det_analysis.py               # diagonal vs full-det DL

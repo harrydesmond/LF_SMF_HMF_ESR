@@ -11,11 +11,11 @@ top combined-ranking functions may not all appear in any single sim's
 top-N output at a given complexity.
 
 The output is consumed by:
-  - trimmed_checks_and_plots.py (reads hmf_trimmed_searchcomp.txt)
-  - generate_untrimmed_appendix.py, Pareto_plotter.py (read hmf_func_gencomp.txt)
+  - fiducial_checks_and_plots.py (reads hmf_fiducial_searchcomp.txt)
+  - generate_extended_appendix.py, Pareto_plotter.py (read hmf_func_gencomp.txt)
 
 Usage:
-    python3 build_searchcomp.py              # fiducial (trimmed) -> hmf_trimmed_searchcomp.txt
+    python3 build_searchcomp.py              # fiducial -> hmf_fiducial_searchcomp.txt
     python3 build_searchcomp.py --extended   # full range         -> hmf_func_gencomp.txt
     python3 build_searchcomp.py --outfile custom_name.txt
 """
@@ -26,15 +26,15 @@ import os
 import re
 
 
-def scan_complexity_outputs(trimmed):
+def scan_complexity_outputs(fiducial):
     """Return {function_string: min_complexity} scanning all per-sim ESR outputs."""
-    if trimmed:
-        dir_glob = 'hmf_trimmed_*_data'
-        # Accept final_<C>_trimmed.dat
+    if fiducial:
+        dir_glob = 'hmf_fiducial_*_data'
+        # Accept final_<C>_fiducial.dat
         def keep(fn):
-            return bool(re.fullmatch(r'final_\d+_trimmed\.dat', fn))
+            return bool(re.fullmatch(r'final_\d+_fiducial\.dat', fn))
     else:
-        # Glob with leading digit to avoid matching hmf_trimmed_*_data
+        # Glob with leading digit to avoid matching hmf_fiducial_*_data
         dir_glob = 'hmf_[0-9]*_data'
         # Accept final_<C>.dat or final_<C>_new.dat (either ESR-search convention).
         def keep(fn):
@@ -44,7 +44,7 @@ def scan_complexity_outputs(trimmed):
     if not dirs:
         raise FileNotFoundError(
             f"No directories matching {dir_glob!r}. "
-            "Run the ESR pipeline (sample_top_200.py step1 or run_hmf_trimmed_step1.py) first."
+            "Run the ESR pipeline (sample_top_200.py step1 or run_hmf_fiducial_step1.py) first."
         )
 
     files = []
@@ -83,22 +83,22 @@ def scan_complexity_outputs(trimmed):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--extended', action='store_true',
-                        help='Scan full-range ESR outputs. Default: fiducial (trimmed).')
+                        help='Scan full-range ESR outputs. Default: fiducial.')
     parser.add_argument('--outfile', default=None,
                         help='Output filename. Default depends on --extended.')
     args = parser.parse_args()
-    trimmed = not args.extended
+    fiducial = not args.extended
 
     if args.outfile:
         outfile = args.outfile
-    elif trimmed:
-        outfile = 'hmf_trimmed_searchcomp.txt'
+    elif fiducial:
+        outfile = 'hmf_fiducial_searchcomp.txt'
     else:
         outfile = 'hmf_func_gencomp.txt'
 
-    mapping, dirs = scan_complexity_outputs(trimmed)
+    mapping, dirs = scan_complexity_outputs(fiducial)
 
-    label = 'search_complexity' if trimmed else 'generation_complexity'
+    label = 'search_complexity' if fiducial else 'generation_complexity'
     with open(outfile, 'w') as f:
         f.write(f'# function;{label}\n')
         f.write(f'# Minimum ESR complexity at which each function appears across {len(dirs)} per-sim output dirs.\n')

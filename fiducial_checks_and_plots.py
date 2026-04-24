@@ -1,11 +1,11 @@
 """
-Physicality checks + comparison plots for trimmed HMF ESR results.
+Physicality checks + comparison plots for fiducial HMF ESR results.
 
 Produces:
-  1. Physicality check results for top 8 trimmed ESR functions
-  2. Final_Plots/Pareto_HMF_trimmed.pdf — Pareto front with PS-like overlay
-  3. Final_Plots/HMF_functions_trimmed.pdf — Function fits (phi vs logM, 3 panels)
-  4. Final_Plots/extrapolation_HMF_trimmed.pdf — Extrapolation (phi vs logM)
+  1. Physicality check results for top 8 fiducial ESR functions
+  2. Final_Plots/Pareto_HMF_fiducial.pdf — Pareto front with PS-like overlay
+  3. Final_Plots/HMF_functions_fiducial.pdf — Function fits (phi vs logM, 3 panels)
+  4. Final_Plots/extrapolation_HMF_fiducial.pdf — Extrapolation (phi vs logM)
 """
 
 import os
@@ -21,7 +21,7 @@ warnings.filterwarnings('ignore')
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# ── Colour scheme (matching untrimmed) ──────────────────────────────────────
+# ── Colour scheme (matching extended) ──────────────────────────────────────
 ESR_COLOURS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
 LIT_COLOURS = {'P.Sch.': '#17becf', 'War.': '#bcbd22', 'Tin.': '#e377c2'}
 LIT_STYLES  = {'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2))}
@@ -57,10 +57,10 @@ Veff = 1e9 / 0.6711**3
 delta_logm = 0.2
 
 
-def load_hmf_data(sim_id, trimmed=False):
+def load_hmf_data(sim_id, fiducial=False):
     data = np.loadtxt(f'data/hmf_files/hmf_{sim_id}.dat')
     n_full = len(data)
-    if trimmed:
+    if fiducial:
         data = data[2:]
         factor = factor_mvm[2:2+len(data)]
         logM_bin = logM_mvm[2:2+len(data)]
@@ -76,9 +76,9 @@ def load_hmf_data(sim_id, trimmed=False):
     return sigma, counts, logM, y, y_err, factor
 
 
-def load_trimmed_results(sim_id):
+def load_fiducial_results(sim_id):
     results = []
-    path = f'hmf_data/hmf_{sim_id}_data/final_all_trimmed.txt'
+    path = f'hmf_data/hmf_{sim_id}_data/final_all_fiducial.txt'
     with open(path) as fh:
         for line in fh:
             parts = line.strip().split(';')
@@ -109,7 +109,7 @@ def tinker_func(x, params):
 
 
 lit_params = {}
-with open('literature_fits_trimmed.txt') as f:
+with open('literature_fits_fiducial.txt') as f:
     for line in f:
         if line.startswith('#'): continue
         parts = line.strip().split(';')
@@ -118,7 +118,7 @@ with open('literature_fits_trimmed.txt') as f:
                 lit_params[parts[0]] = np.array([float(v) for v in parts[5].split()])
 
 lit_sim50 = {}
-with open('literature_fits_trimmed.txt') as f:
+with open('literature_fits_fiducial.txt') as f:
     for line in f:
         if line.startswith('#'): continue
         parts = line.strip().split(';')
@@ -139,7 +139,7 @@ def eval_lit(name, sigma):
 # ── Load ESR results ────────────────────────────────────────────────────────
 
 esr_results = []
-with open('hmf_combined_DL_trimmed_new.txt') as f:
+with open('hmf_combined_DL_fiducial.txt') as f:
     for line in f:
         if line.startswith('#'): continue
         parts = line.strip().split(';')
@@ -154,17 +154,17 @@ with open('hmf_combined_DL_trimmed_new.txt') as f:
 
 # Load search complexity mapping
 searchcomp_map = {}
-with open('hmf_trimmed_searchcomp.txt') as f:
+with open('hmf_fiducial_searchcomp.txt') as f:
     for line in f:
         if line.startswith('#'): continue
         parts = line.strip().split(';')
         if len(parts) >= 2 and parts[1] != '-1':
             searchcomp_map[parts[0]] = int(parts[1])
 
-sim50_trimmed = load_trimmed_results(50)
-sim50_dict = {t: p for (t, _, _, p) in sim50_trimmed}
-sim50_dl_dict = {t: dl for (t, dl, _, _) in sim50_trimmed}
-sim50_nll_dict = {t: nll for (t, _, nll, _) in sim50_trimmed}
+sim50_fiducial = load_fiducial_results(50)
+sim50_dict = {t: p for (t, _, _, p) in sim50_fiducial}
+sim50_dl_dict = {t: dl for (t, dl, _, _) in sim50_fiducial}
+sim50_nll_dict = {t: nll for (t, _, nll, _) in sim50_fiducial}
 
 # ── PS-like detection ───────────────────────────────────────────────────────
 
@@ -197,7 +197,7 @@ def check_ps_like(func_str, params, sigma_vals=(100, 1000, 10000)):
 # Part 1: Physicality checks
 # ══════════════════════════════════════════════════════════════════════════════
 print("=" * 80)
-print("PHYSICALITY CHECKS — Top 8 trimmed ESR functions")
+print("PHYSICALITY CHECKS — Top 8 fiducial ESR functions")
 print("=" * 80)
 
 for i, r in enumerate(esr_results[:8]):
@@ -248,12 +248,12 @@ for i, r in enumerate(esr_results[:8]):
 # ══════════════════════════════════════════════════════════════════════════════
 # Part 2: Pareto front (search complexity, with PS-like)
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n\n=== Plot 2: Pareto HMF trimmed ===")
+print("\n\n=== Plot 2: Pareto HMF fiducial ===")
 
 # Per SEARCH complexity best from sim 50
 esr_comp_dl = {}
 for comp in range(4, 11):
-    path = f'hmf_trimmed_50_data/final_{comp}_trimmed.dat'
+    path = f'hmf_fiducial_50_data/final_{comp}_fiducial.dat'
     if not os.path.exists(path):
         continue
     with open(path) as fh:
@@ -267,7 +267,7 @@ best_sim50_NLL = [nll for dl, nll in esr_comp_dl.values() if dl == best_sim50_DL
 # PS-like: use SEARCH complexity
 print("  Detecting PS-like functions...")
 ps_like_entries = []
-for tmpl, dl50, nll50, p50 in sim50_trimmed:
+for tmpl, dl50, nll50, p50 in sim50_fiducial:
     sc = searchcomp_map.get(tmpl)
     if sc is None or sc < 4 or sc > 10:
         continue
@@ -325,18 +325,18 @@ ax.tick_params(labelsize=10)
 fig.tight_layout()
 
 os.makedirs('Plots/Old', exist_ok=True)
-plt.savefig('Plots/Pareto_HMF_trimmed.png', dpi=150)
-plt.savefig('Final_Plots/Pareto_HMF_trimmed.pdf', bbox_inches='tight')
+plt.savefig('Plots/Pareto_HMF_fiducial.png', dpi=150)
+plt.savefig('Final_Plots/Pareto_HMF_fiducial.pdf', bbox_inches='tight')
 plt.close()
-print("Saved Pareto_HMF_trimmed")
+print("Saved Pareto_HMF_fiducial")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Part 3: Function fits — phi(logM) (matching Fig 5)
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n=== Plot 3: HMF functions (trimmed, sim 50) ===")
+print("\n=== Plot 3: HMF functions (fiducial, sim 50) ===")
 
-sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data(50, trimmed=True)
+sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data(50, fiducial=True)
 top4_funcs = [(esr_results[0]['function'], "ESR best")]
 
 fig, (ax_data, ax_res, ax_nll) = plt.subplots(
@@ -412,16 +412,16 @@ ax_data.legend(fontsize=10)
 fig.tight_layout()
 fig.subplots_adjust(hspace=0)
 
-plt.savefig('Plots/HMF_functions_trimmed.png', dpi=150, bbox_inches='tight')
-plt.savefig('Final_Plots/HMF_functions_trimmed.pdf', dpi=200, bbox_inches='tight')
+plt.savefig('Plots/HMF_functions_fiducial.png', dpi=150, bbox_inches='tight')
+plt.savefig('Final_Plots/HMF_functions_fiducial.pdf', dpi=200, bbox_inches='tight')
 plt.close()
-print("Saved HMF_functions_trimmed")
+print("Saved HMF_functions_fiducial")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Part 4: Extrapolation — two panels matching Fig 4 HMF row
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n=== Plot 4: Extrapolation HMF trimmed (2 panels) ===")
+print("\n=== Plot 4: Extrapolation HMF fiducial (2 panels) ===")
 
 # --- Left panel: phi vs logM ---
 # Evaluate in M_sun coords for sigma/factor lookup, then shift for h^-1 M_sun display
@@ -437,7 +437,7 @@ logM_50_display = logM_50  # already converted in load_hmf_data
 # --- Right panel: f(sigma) vs sigma ---
 sigma_eval_fine = np.geomspace(0.01, 20, 5000)
 
-# Trimmed data in sigma space
+# Fiducial data in sigma space
 phi_data = 10**y_50  # y_50 = log10(phi)
 f_data_sigma = phi_data / factor_50
 y_data_sigma = np.log10(f_data_sigma)
@@ -446,7 +446,7 @@ fig, (ax_logM, ax_sigma) = plt.subplots(1, 2, figsize=(14, 5.5))
 
 # ---- Left: phi vs logM ----
 ax_logM.errorbar(logM_50_display, y_50, yerr=y_err_50, fmt='x', color='black',
-                 ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (trimmed)')
+                 ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (fiducial)')
 ax_logM.axvspan(logM_50_display.min(), logM_50_display.max(), color='grey', alpha=0.08, zorder=0)
 
 for idx, (func, label) in enumerate(top4_funcs):
@@ -471,7 +471,7 @@ ax_logM.set_ylabel(r'$\log\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$',
 ax_logM.set_xlim(7.8, 16.8)
 ax_logM.set_ylim(-30, 2)
 ax_logM.tick_params(labelsize=10)
-ax_logM.text(0.05, 0.95, 'HMF (trimmed)', transform=ax_logM.transAxes,
+ax_logM.text(0.05, 0.95, 'HMF (fiducial)', transform=ax_logM.transAxes,
              fontsize=13, va='top', ha='left', fontweight='bold')
 
 # Inset for logM panel
@@ -507,7 +507,7 @@ for line in connectors:
 
 # ---- Right: f(sigma) vs sigma ----
 ax_sigma.errorbar(sigma_50, y_data_sigma, yerr=y_err_50, fmt='x', color='black',
-                  ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (trimmed)')
+                  ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (fiducial)')
 ax_sigma.axvspan(sigma_50.min(), sigma_50.max(), color='grey', alpha=0.08, zorder=0)
 
 for idx, (func, label) in enumerate(top4_funcs):
@@ -532,7 +532,7 @@ ax_sigma.yaxis.tick_right()
 ax_sigma.set_xlim(0, 8)
 ax_sigma.set_ylim(-7, 0.5)
 ax_sigma.tick_params(labelsize=10)
-ax_sigma.text(0.05, 0.95, r'HMF trimmed ($\sigma$)', transform=ax_sigma.transAxes,
+ax_sigma.text(0.05, 0.95, r'HMF fiducial ($\sigma$)', transform=ax_sigma.transAxes,
               fontsize=13, va='top', ha='left', fontweight='bold')
 
 # Legend across both panels
@@ -547,9 +547,9 @@ fig.legend(handles, labels, loc='upper center', ncol=len(labels), fontsize=10,
 
 fig.tight_layout(w_pad=0)
 
-plt.savefig('Plots/extrapolation_HMF_trimmed.png', dpi=150, bbox_inches='tight')
-plt.savefig('Final_Plots/extrapolation_HMF_trimmed.pdf', dpi=200, bbox_inches='tight')
+plt.savefig('Plots/extrapolation_HMF_fiducial.png', dpi=150, bbox_inches='tight')
+plt.savefig('Final_Plots/extrapolation_HMF_fiducial.pdf', dpi=200, bbox_inches='tight')
 plt.close()
-print("Saved extrapolation_HMF_trimmed")
+print("Saved extrapolation_HMF_fiducial")
 
 print("\nAll done!")

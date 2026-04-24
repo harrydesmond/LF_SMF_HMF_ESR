@@ -25,10 +25,10 @@ import numdifftools as nd
 from esr.generation.generator import string_to_node, aifeyn_complexity
 
 
-def load_hmf_data(sim, trimmed=False):
+def load_hmf_data(sim, fiducial=False):
     filepath = f'data/hmf_files/hmf_{sim}.dat'
     data = np.loadtxt(filepath)
-    if trimmed:
+    if fiducial:
         data = data[2:]  # drop first 2 rows (lowest mass / highest sigma)
     return data[:, 0], data[:, 1], data[:, 3]  # sigma, counts, norm
 
@@ -167,7 +167,7 @@ def get_aifeynman(esr_string):
         return None
 
 
-# Known good parameters from sim 50 (hmf_50_final_functions.txt; untrimmed fits)
+# Known good parameters from sim 50 (hmf_50_final_functions.txt; extended fits)
 LITERATURE_FUNCTIONS = {
     'P.Sch.': {
         'func': press_schechter,
@@ -198,16 +198,16 @@ def main():
     parser.add_argument('--extended', action='store_true',
                         help='Use full-range HMF data (keep all bins). Default: fiducial (drop 2 lowest-mass bins).')
     args = parser.parse_args()
-    trimmed = not args.extended
+    fiducial = not args.extended
 
-    if trimmed:
-        per_sim_out = 'literature_fits_trimmed.txt'
-        combined_out = 'literature_combined_DL_trimmed.txt'
-        mode_label = 'TRIMMED'
+    if fiducial:
+        per_sim_out = 'literature_fits_fiducial.txt'
+        combined_out = 'literature_combined_DL_fiducial.txt'
+        mode_label = 'FIDUCIAL'
     else:
         per_sim_out = 'literature_fits_all_sims.txt'
         combined_out = 'literature_combined_DL.txt'
-        mode_label = 'UNTRIMMED'
+        mode_label = 'EXTENDED'
 
     sim_numbers = sorted([
         int(f.split('_')[1].split('.')[0])
@@ -216,10 +216,10 @@ def main():
     ])
     print(f"Found {len(sim_numbers)} simulations: {sim_numbers[0]}..{sim_numbers[-1]}")
 
-    if not trimmed:
-        # Validate against known ESR fit for sim 50 (untrimmed reference values)
+    if not fiducial:
+        # Validate against known ESR fit for sim 50 (extended reference values)
         print("\nValidating data format against known ESR fit (sim 50)...")
-        sigma50, counts50, norm50 = load_hmf_data(50, trimmed=False)
+        sigma50, counts50, norm50 = load_hmf_data(50, fiducial=False)
         a = [0.65734271, 1.70541354, 1.63275111, 2.78494662]
         ypred = np.abs(a[0])**np.exp(np.abs(a[1])**(np.abs(a[2] - sigma50)**a[3])) * norm50
         nll_check = np.sum(ypred - counts50 * np.log(ypred))
@@ -242,7 +242,7 @@ def main():
 
     for sim_idx, sim in enumerate(sim_numbers):
         try:
-            sigma, counts, norm = load_hmf_data(sim, trimmed=trimmed)
+            sigma, counts, norm = load_hmf_data(sim, fiducial=fiducial)
         except Exception as e:
             print(f"  Could not load sim {sim}: {e}")
             continue
@@ -283,8 +283,8 @@ def main():
         if (sim_idx + 1) % 10 == 0 or sim_idx == 0:
             print(f"  Completed {sim_idx+1}/{len(sim_numbers)} sims", flush=True)
 
-    if not trimmed:
-        # Validate sim 50 (untrimmed only: reference values are for untrimmed fits)
+    if not fiducial:
+        # Validate sim 50 (extended only: reference values are for extended fits)
         print("\nValidation against hmf_50_final_functions.txt:")
         for name in LITERATURE_FUNCTIONS:
             if 50 in results[name]:

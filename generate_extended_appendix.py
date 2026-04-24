@@ -1,13 +1,13 @@
 """
-Generate two appendix figures (Pareto and extrapolation) for the UNTRIMMED
+Generate two appendix figures (Pareto and extrapolation) for the EXTENDED
 (full-range) HMF data, with enlarged fonts matching Figure A1
-(HMF_functions_untrimmed.pdf): axis labels 16, ticks 14, legend 14, annotations 14.
+(HMF_functions_extended.pdf): axis labels 16, ticks 14, legend 14, annotations 14.
 
 Outputs:
-  Final_Plots/Pareto_HMF_untrimmed.pdf (+ Plots/...png)
-  Final_Plots/extrapolation_HMF_untrimmed.pdf (+ Plots/...png)
+  Final_Plots/Pareto_HMF_extended.pdf (+ Plots/...png)
+  Final_Plots/extrapolation_HMF_extended.pdf (+ Plots/...png)
 
-Based on Parts 2 and 4 of trimmed_checks_and_plots.py, adapted for untrimmed data.
+Based on Parts 2 and 4 of fiducial_checks_and_plots.py, adapted for extended data.
 """
 
 import os
@@ -53,7 +53,7 @@ def make_func(template):
     return f, param_names
 
 
-# ── Mass-variance relation (UNTRIMMED) ──────────────────────────────────────
+# ── Mass-variance relation (EXTENDED) ──────────────────────────────────────
 logM_mvm, sigma_mvm, factor_mvm = np.loadtxt(
     'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
 factor_of_sigma = interp1d(sigma_mvm, factor_mvm, kind='cubic', fill_value='extrapolate')
@@ -65,7 +65,7 @@ Veff = 1e9 / 0.6711**3
 delta_logm = 0.2
 
 
-def load_hmf_data_untrimmed(sim_id):
+def load_hmf_data_extended(sim_id):
     data = np.loadtxt(f'data/hmf_files/hmf_{sim_id}.dat')
     n_full = len(data)
     factor = factor_mvm[:n_full]
@@ -78,7 +78,7 @@ def load_hmf_data_untrimmed(sim_id):
     return sigma, counts, logM, y, y_err, factor
 
 
-def load_sim50_results_untrimmed():
+def load_sim50_results_extended():
     results = []
     with open('hmf_data/hmf_50_data/final_all.txt') as fh:
         for line in fh:
@@ -94,7 +94,7 @@ def load_sim50_results_untrimmed():
     return results
 
 
-# ── Literature fits on untrimmed data (sim 50) ──────────────────────────────
+# ── Literature fits on extended data (sim 50) ──────────────────────────────
 def press_schechter(x):
     delta_c = 1.686
     return np.sqrt(2.0 / np.pi) * (delta_c / x) * np.exp(-0.5 * (delta_c / x)**2)
@@ -135,7 +135,7 @@ def eval_lit(name, sigma):
     return None
 
 
-# ── ESR combined-DL ranking (untrimmed) ─────────────────────────────────────
+# ── ESR combined-DL ranking (extended) ─────────────────────────────────────
 esr_results = []
 with open('hmf_combined_DL.txt') as fh:
     for line in fh:
@@ -149,7 +149,7 @@ with open('hmf_combined_DL.txt') as fh:
             'sum_NLL': float(parts[4]),
         })
 
-# Generation-complexity mapping (untrimmed)
+# Generation-complexity mapping (extended)
 searchcomp_map = {}
 with open('hmf_func_gencomp.txt') as fh:
     for line in fh:
@@ -159,10 +159,10 @@ with open('hmf_func_gencomp.txt') as fh:
         if len(parts) >= 2 and parts[1] != '-1':
             searchcomp_map[parts[0]] = int(parts[1])
 
-sim50_untrimmed = load_sim50_results_untrimmed()
-sim50_dict = {t: p for (t, _, _, p) in sim50_untrimmed}
-sim50_dl_dict = {t: dl for (t, dl, _, _) in sim50_untrimmed}
-sim50_nll_dict = {t: nll for (t, _, nll, _) in sim50_untrimmed}
+sim50_extended = load_sim50_results_extended()
+sim50_dict = {t: p for (t, _, _, p) in sim50_extended}
+sim50_dl_dict = {t: dl for (t, dl, _, _) in sim50_extended}
+sim50_nll_dict = {t: nll for (t, _, nll, _) in sim50_extended}
 
 
 # ── PS-like detection ───────────────────────────────────────────────────────
@@ -192,9 +192,9 @@ def check_ps_like(func_str, params, sigma_vals=(100, 1000, 10000)):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Part A: Pareto front (untrimmed) — delegate to Pareto_plotter
+# Part A: Pareto front (extended) — delegate to Pareto_plotter
 # ══════════════════════════════════════════════════════════════════════════════
-print("=== Plot: Pareto HMF untrimmed ===")
+print("=== Plot: Pareto HMF extended ===")
 
 from Pareto_plotter import make_single_panel_figure, load_ps_like_for_hmf
 
@@ -206,7 +206,7 @@ os.makedirs('Plots/Old', exist_ok=True)
 os.makedirs('Final_Plots', exist_ok=True)
 make_single_panel_figure(
     'hmf_50',
-    'Final_Plots/Pareto_HMF_untrimmed.pdf',
+    'Final_Plots/Pareto_HMF_extended.pdf',
     ps_like_data=hmf_ps_data,
     label_fontsize=FS_LABEL,
     tick_fontsize=FS_TICK,
@@ -214,15 +214,15 @@ make_single_panel_figure(
     figsize=(6.8, 4.8),
     ylabel_x_offset=0.10,
 )
-print("Saved Pareto_HMF_untrimmed")
+print("Saved Pareto_HMF_extended")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Part B: Extrapolation — two panels (untrimmed)
+# Part B: Extrapolation — two panels (extended)
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n=== Plot: Extrapolation HMF untrimmed (2 panels) ===")
+print("\n=== Plot: Extrapolation HMF extended (2 panels) ===")
 
-sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data_untrimmed(50)
+sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data_extended(50)
 top4_funcs = [(r['function'], f"ESR {i+1}") for i, r in enumerate(esr_results[:4])]
 
 h_offset = np.log10(0.6711)
@@ -350,19 +350,19 @@ fig.legend(handles, labels, loc='upper center', ncol=len(labels),
 
 fig.tight_layout(w_pad=0)
 
-plt.savefig('Plots/extrapolation_HMF_untrimmed.png', dpi=150, bbox_inches='tight')
-plt.savefig('Final_Plots/extrapolation_HMF_untrimmed.pdf', dpi=200, bbox_inches='tight')
+plt.savefig('Plots/extrapolation_HMF_extended.png', dpi=150, bbox_inches='tight')
+plt.savefig('Final_Plots/extrapolation_HMF_extended.pdf', dpi=200, bbox_inches='tight')
 plt.close()
-print("Saved extrapolation_HMF_untrimmed")
+print("Saved extrapolation_HMF_extended")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Part C: Function fits (HMF_functions_untrimmed.pdf, Fig A1)
-# Mirrors trimmed_checks_and_plots.py Part 3 but for the untrimmed data.
+# Part C: Function fits (HMF_functions_extended.pdf, Fig A1)
+# Mirrors fiducial_checks_and_plots.py Part 3 but for the extended data.
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n=== Plot: HMF functions untrimmed (Fig A1) ===")
+print("\n=== Plot: HMF functions extended (Fig A1) ===")
 
-best_func, _, _, best_params = sim50_untrimmed[0]  # rank 1 by DL
+best_func, _, _, best_params = sim50_extended[0]  # rank 1 by DL
 f1_call, _ = make_func(best_func)
 f1_vals = f1_call(best_params, sigma_50)
 phi1 = f1_vals * factor_50
@@ -411,9 +411,9 @@ ax_data.legend(fontsize=10)
 fig.tight_layout()
 fig.subplots_adjust(hspace=0)
 
-plt.savefig('Plots/HMF_functions_untrimmed.png', dpi=150, bbox_inches='tight')
-plt.savefig('Final_Plots/HMF_functions_untrimmed.pdf', dpi=200, bbox_inches='tight')
+plt.savefig('Plots/HMF_functions_extended.png', dpi=150, bbox_inches='tight')
+plt.savefig('Final_Plots/HMF_functions_extended.pdf', dpi=200, bbox_inches='tight')
 plt.close()
-print("Saved HMF_functions_untrimmed")
+print("Saved HMF_functions_extended")
 
 print("\nAll done!")

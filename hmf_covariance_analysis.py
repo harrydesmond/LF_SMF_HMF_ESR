@@ -15,12 +15,12 @@ Inputs:
   - data/hmf_files/hmf_<sim>.dat (sim = 0..99; 5 cols). By default the 2
     lowest-mass bins (rows 0,1) are dropped on-the-fly; pass --extended to
     keep all bins.
-  - hmf_50_final_functions.txt / hmf_50_final_functions_trimmed.txt
+  - hmf_50_final_functions.txt / hmf_50_final_functions_fiducial.txt
     (for the ranking-impact test)
 
 Outputs:
-  - hmf_covariance_results.txt / hmf_covariance_results_trimmed.txt
-  - Final_Plots/hmf_correlation_matrix.pdf / _trimmed.pdf
+  - hmf_covariance_results.txt / hmf_covariance_results_fiducial.txt
+  - Final_Plots/hmf_correlation_matrix.pdf / _fiducial.pdf
 """
 
 import argparse
@@ -44,19 +44,19 @@ def main():
     parser.add_argument('--extended', action='store_true',
                         help='Keep all bins (full-range analysis). Default: fiducial (drop 2 lowest-mass bins).')
     args = parser.parse_args()
-    trimmed = not args.extended
+    fiducial = not args.extended
 
-    if trimmed:
-        final_funcs_file = 'hmf_50_final_functions_trimmed.txt'
-        results_outfile = 'hmf_covariance_results_trimmed.txt'
-        plot_outfile = 'Final_Plots/hmf_correlation_matrix_trimmed.pdf'
-        mode_label = 'TRIMMED / FIDUCIAL'
+    if fiducial:
+        final_funcs_file = 'hmf_50_final_functions_fiducial.txt'
+        results_outfile = 'hmf_covariance_results_fiducial.txt'
+        plot_outfile = 'Final_Plots/hmf_correlation_matrix_fiducial.pdf'
+        mode_label = 'FIDUCIAL'
         N_TRIM = 2
     else:
         final_funcs_file = 'hmf_50_final_functions.txt'
         results_outfile = 'hmf_covariance_results.txt'
         plot_outfile = 'Final_Plots/hmf_correlation_matrix.pdf'
-        mode_label = 'FULL RANGE'
+        mode_label = 'EXTENDED'
         N_TRIM = 0
 
     # ─── 1. Load all 100 realisations ───
@@ -74,7 +74,7 @@ def main():
             min_bins = d.shape[0]
 
     print(f"Number of simulations: {n_sims}")
-    trim_suffix = ' (fiducial / trimmed)' if trimmed else ''
+    trim_suffix = ' (fiducial)' if fiducial else ''
     print(f"Minimum number of bins across sims{trim_suffix}: {min_bins}")
 
     n_bins = min_bins
@@ -133,7 +133,7 @@ def main():
     log(f"HMF COVARIANCE ANALYSIS ({mode_label}): 100 Quijote realisations")
     log("=" * 70)
     log("")
-    bin_qualifier = ', trimmed data' if trimmed else ''
+    bin_qualifier = ', fiducial data' if fiducial else ''
     log(f"Number of sigma bins used: {n_bins} (common to all 100 sims{bin_qualifier})")
     log(f"Sigma values: {np.array2string(sigma_ref, precision=4)}")
     log("")

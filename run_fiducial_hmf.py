@@ -1,12 +1,12 @@
-"""Refit top 200 HMF functions on trimmed data (2 lowest-mass bins removed).
+"""Refit top 200 HMF functions on fiducial data (2 lowest-mass bins removed).
 
 This is a modified version of sample_top_200.py's run_fits() that:
-1. Creates trimmed data files (dropping first 2 rows from hmf_*.dat)
+1. Creates fiducial data files (dropping first 2 rows from hmf_*.dat)
 2. Fits all 200 functions from top_500_all.txt to each sim using ESR's fit_from_string
-3. Saves results to hmf_data/hmf_{sim}_data/final_all_trimmed.txt
+3. Saves results to hmf_data/hmf_{sim}_data/final_all_fiducial.txt
 
 Usage:
-    addqueue -q berg -n 50 -m 4 /usr/local/shared/python/3.11.4/bin/python3 run_trimmed_hmf.py
+    addqueue -q berg -n 50 -m 4 /usr/local/shared/python/3.11.4/bin/python3 run_fiducial_hmf.py
 """
 
 import sys
@@ -31,8 +31,8 @@ all_sims = list(range(100))
 my_sims = [s for i, s in enumerate(all_sims) if i % size == rank]
 
 
-def create_trimmed_data(sim_id):
-    """Create a trimmed data file (drop first 2 rows) in hmf_files/.
+def create_fiducial_data(sim_id):
+    """Create a fiducial data file (drop first 2 rows) in hmf_files/.
 
     The PoissonLikelihood reads cols 0-3 (sigma, counts, error, Veff).
     We keep all 5 columns so the file format is unchanged, just 2 rows shorter.
@@ -41,17 +41,17 @@ def create_trimmed_data(sim_id):
     """
     src = f'data/hmf_files/hmf_{sim_id}.dat'
     data = np.loadtxt(src)
-    trimmed = data[2:]  # drop 2 lowest-mass (highest-sigma) bins
+    fiducial = data[2:]  # drop 2 lowest-mass (highest-sigma) bins
     # Write to the working directory (not data_dir, since we'll pass full path)
-    dst_rel = f'hmf_files/hmf_{sim_id}_trimmed.dat'
+    dst_rel = f'hmf_files/hmf_{sim_id}_fiducial.dat'
     dst_abs = os.path.join(os.getcwd(), dst_rel)
     os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
-    np.savetxt(dst_abs, trimmed, fmt='%.18e')
+    np.savetxt(dst_abs, fiducial, fmt='%.18e')
     return dst_rel, dst_abs
 
 
 def fit_str(func_str, data_path_rel):
-    """Fit a single function string to trimmed data."""
+    """Fit a single function string to fiducial data."""
     basis_functions = [["x", "a"],
                        ["inv", "exp", "log", "abs"],
                        ["+", "*", "-", "/", "pow"]]
@@ -66,7 +66,7 @@ def fit_str(func_str, data_path_rel):
         return np.nan, np.nan, None
 
     # Pass data_dir='.' so PoissonLikelihood reads from current working directory
-    likelihood = PoissonLikelihood(data_path_rel, 'poisson_trimmed',
+    likelihood = PoissonLikelihood(data_path_rel, 'poisson_fiducial',
                                    data_dir='.', fn_set='base_e_maths')
 
     count = 0
@@ -90,14 +90,14 @@ def fit_str(func_str, data_path_rel):
 
 
 def run_sim(sim_id):
-    """Fit all 200 functions to one trimmed sim."""
+    """Fit all 200 functions to one fiducial sim."""
     print(f'Rank {rank}: starting sim {sim_id}', flush=True)
 
-    # Create trimmed data file
-    data_path_rel, data_path_abs = create_trimmed_data(sim_id)
+    # Create fiducial data file
+    data_path_rel, data_path_abs = create_fiducial_data(sim_id)
 
     # Load top 200 functions
-    with open('top_500_trimmed.txt', 'r') as f:
+    with open('top_500_fiducial.txt', 'r') as f:
         functions = [line.strip() for line in f][:200]
 
     data = []
@@ -125,7 +125,7 @@ def run_sim(sim_id):
 
     outdir = f'hmf_data/hmf_{sim_id}_data'
     os.makedirs(outdir, exist_ok=True)
-    outpath = os.path.join(outdir, 'final_all_trimmed.txt')
+    outpath = os.path.join(outdir, 'final_all_fiducial.txt')
 
     with open(outpath, 'w') as f:
         for i, (func, dl, nll, params) in enumerate(sorted_data):

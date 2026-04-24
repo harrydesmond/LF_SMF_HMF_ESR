@@ -1,8 +1,8 @@
 """
-Build data for the trimmed HMF table (tab:HMF_trimmed) in Paper.tex.
+Build data for the fiducial HMF table (tab:HMF_fiducial) in Paper.tex.
 
-Reads: hmf_combined_DL_trimmed_new.txt, literature_combined_DL_trimmed.txt,
-       literature_fits_trimmed.txt, hmf_data/hmf_*_data/final_all_trimmed.txt
+Reads: hmf_combined_DL_fiducial.txt, literature_combined_DL_fiducial.txt,
+       literature_fits_fiducial.txt, hmf_data/hmf_*_data/final_all_fiducial.txt
 """
 
 import sys
@@ -28,7 +28,7 @@ def get_gencomp(func_str):
 def main():
     # Load ESR combined DL results
     esr_results = []
-    with open('hmf_combined_DL_trimmed_new.txt') as f:
+    with open('hmf_combined_DL_fiducial.txt') as f:
         for line in f:
             if line.startswith('#'):
                 continue
@@ -49,7 +49,7 @@ def main():
 
     # Load literature combined DL
     lit_results = {}
-    with open('literature_combined_DL_trimmed.txt') as f:
+    with open('literature_combined_DL_fiducial.txt') as f:
         for line in f:
             if line.startswith('#'):
                 continue
@@ -65,7 +65,7 @@ def main():
 
     # Load literature per-sim parameters
     lit_params = {}
-    with open('literature_fits_trimmed.txt') as f:
+    with open('literature_fits_fiducial.txt') as f:
         for line in f:
             if line.startswith('#'):
                 continue
@@ -86,7 +86,7 @@ def main():
     func_params = {f: [] for f in top_funcs}
     data_dir = 'hmf_data'
     for sim in range(100):
-        filepath = os.path.join(data_dir, f'hmf_{sim}_data/final_all_trimmed.txt')
+        filepath = os.path.join(data_dir, f'hmf_{sim}_data/final_all_fiducial.txt')
         if not os.path.exists(filepath):
             continue
         with open(filepath) as f:
@@ -107,7 +107,7 @@ def main():
 
     # Print table data
     print("=" * 120)
-    print("TRIMMED HMF TABLE DATA")
+    print("FIDUCIAL HMF TABLE DATA")
     print("=" * 120)
 
     # ESR best NLL for delta_NLL computation
@@ -174,45 +174,45 @@ def main():
 
         print(f"{'':>4} {name:>4} {delta_DL:8.0f} {delta_NLL_lit:8.0f} {lr['n_sims']:3d}  {pstr}")
 
-    # Also print comparison with untrimmed
-    print("\n\nCOMPARISON: Untrimmed vs Trimmed")
+    # Also print comparison with extended
+    print("\n\nCOMPARISON: Extended vs Fiducial")
     print("=" * 80)
 
-    # Load untrimmed results
-    untrimmed_results = []
+    # Load extended results
+    extended_results = []
     with open('hmf_combined_DL.txt') as f:
         for line in f:
             if line.startswith('#'):
                 continue
             parts = line.strip().split(';')
-            untrimmed_results.append({
+            extended_results.append({
                 'function': parts[1],
                 'DL_combined': float(parts[2]),
             })
 
-    untrimmed_lit = {}
+    extended_lit = {}
     with open('literature_combined_DL.txt') as f:
         for line in f:
             if line.startswith('#'):
                 continue
             parts = line.strip().split(';')
-            untrimmed_lit[parts[0]] = float(parts[1])
+            extended_lit[parts[0]] = float(parts[1])
 
-    print(f"\nUntrimmed best ESR DL: {untrimmed_results[0]['DL_combined']:.2f}")
-    print(f"  Warren ΔDL: {(-untrimmed_results[0]['DL_combined']) - untrimmed_lit['War.']:.0f}")
-    print(f"  Tinker ΔDL: {(-untrimmed_results[0]['DL_combined']) - untrimmed_lit['Tin.']:.0f}")
+    print(f"\nExtended best ESR DL: {extended_results[0]['DL_combined']:.2f}")
+    print(f"  Warren ΔDL: {(-extended_results[0]['DL_combined']) - extended_lit['War.']:.0f}")
+    print(f"  Tinker ΔDL: {(-extended_results[0]['DL_combined']) - extended_lit['Tin.']:.0f}")
 
-    print(f"\nTrimmed best ESR DL: {best_DL:.2f}")
+    print(f"\nFiducial best ESR DL: {best_DL:.2f}")
     print(f"  Warren ΔDL: {(-best_DL) - lit_results['War.']['DL_combined']:.0f}")
     print(f"  Tinker ΔDL: {(-best_DL) - lit_results['Tin.']['DL_combined']:.0f}")
 
-    print(f"\nUntrimmed rank-1: {untrimmed_results[0]['function']}")
-    print(f"Trimmed rank-1:   {esr_results[0]['function']}")
+    print(f"\nExtended rank-1: {extended_results[0]['function']}")
+    print(f"Fiducial rank-1:   {esr_results[0]['function']}")
 
-    # Check if trimmed rank-1 appears in untrimmed
-    for i, r in enumerate(untrimmed_results):
+    # Check if fiducial rank-1 appears in extended
+    for i, r in enumerate(extended_results):
         if r['function'] == esr_results[0]['function']:
-            print(f"  (Trimmed rank-1 was untrimmed rank {i+1}, ΔDL = {r['DL_combined'] - untrimmed_results[0]['DL_combined']:.0f})")
+            print(f"  (Fiducial rank-1 was extended rank {i+1}, ΔDL = {r['DL_combined'] - extended_results[0]['DL_combined']:.0f})")
             break
 
 

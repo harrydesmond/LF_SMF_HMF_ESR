@@ -1,6 +1,6 @@
-"""Step 1: Run full ESR on trimmed HMF data for 10 representative sims.
+"""Step 1: Run full ESR on fiducial HMF data for 10 representative sims.
 
-Creates trimmed data files (dropping 2 lowest-mass bins from hmf_*.dat),
+Creates fiducial data files (dropping 2 lowest-mass bins from hmf_*.dat),
 then runs the full ESR pipeline (test_all, test_all_Fisher, match, combine_DL)
 for complexities 4-10 on each of the 10 representative sims.
 
@@ -8,9 +8,9 @@ This is the most expensive step: ~1.5M functions at complexity 10.
 
 Usage:
     # Run one sim+comp at a time via CLI args:
-    addqueue -q berg -n 20 -m 5 /bin/bash run_trimmed_step1.sh <sim> <comp>
+    addqueue -q berg -n 20 -m 5 /bin/bash run_fiducial_step1.sh <sim> <comp>
 
-    # Or use the batch submission script run_trimmed_step1_batch.sh
+    # Or use the batch submission script run_fiducial_step1_batch.sh
 """
 
 import sys
@@ -18,9 +18,9 @@ import os
 import shutil
 import numpy as np
 
-# CLI: python3 run_hmf_trimmed_step1.py <sim> <comp>
+# CLI: python3 run_hmf_fiducial_step1.py <sim> <comp>
 if len(sys.argv) != 3:
-    print("Usage: python3 run_hmf_trimmed_step1.py <sim> <comp>")
+    print("Usage: python3 run_hmf_fiducial_step1.py <sim> <comp>")
     print("  sim: Quijote simulation number (0, 10, 20, ..., 90)")
     print("  comp: ESR complexity (4-10)")
     sys.exit(1)
@@ -35,18 +35,18 @@ from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-# Create trimmed data file if it doesn't exist
-trimmed_path = f'hmf_files/hmf_{hmf_sim}_trimmed.dat'
+# Create fiducial data file if it doesn't exist
+fiducial_path = f'hmf_files/hmf_{hmf_sim}_fiducial.dat'
 if rank == 0:
     src = f'data/hmf_files/hmf_{hmf_sim}.dat'
     data = np.loadtxt(src)
-    trimmed = data[2:]  # drop 2 lowest-mass (highest-sigma) bins
+    fiducial = data[2:]  # drop 2 lowest-mass (highest-sigma) bins
     os.makedirs('hmf_files', exist_ok=True)
-    np.savetxt(trimmed_path, trimmed, fmt='%.18e')
-    print(f"Created {trimmed_path}: {len(trimmed)} bins (was {len(data)})", flush=True)
+    np.savetxt(fiducial_path, fiducial, fmt='%.18e')
+    print(f"Created {fiducial_path}: {len(fiducial)} bins (was {len(data)})", flush=True)
 
     # Create output directory
-    outdir = f'hmf_trimmed_{hmf_sim}_data'
+    outdir = f'hmf_fiducial_{hmf_sim}_data'
     os.makedirs(outdir, exist_ok=True)
 
 comm.Barrier()
@@ -58,10 +58,10 @@ import esr.fitting.test_all_Fisher
 import esr.fitting.match
 import esr.fitting.combine_DL
 
-# Create likelihood using trimmed data
+# Create likelihood using fiducial data
 # Use per-sim run_name to avoid output directory conflicts
-run_name = f'poisson_trimmed_sim{hmf_sim}'
-likelihood = PoissonLikelihood(trimmed_path, run_name,
+run_name = f'poisson_fiducial_sim{hmf_sim}'
+likelihood = PoissonLikelihood(fiducial_path, run_name,
                                data_dir='.', fn_set='base_e_maths')
 
 # Use Amelia's function library directly, but create a per-job writable overlay.
@@ -97,7 +97,7 @@ likelihood.fn_dir = local_fn_dir
 
 if rank == 0:
     print(f"Running ESR for sim {hmf_sim}, complexity {comp}", flush=True)
-    print(f"  Data: {trimmed_path}", flush=True)
+    print(f"  Data: {fiducial_path}", flush=True)
     print(f"  fn_dir: {likelihood.fn_dir}", flush=True)
     print(f"  out_dir: {likelihood.out_dir}", flush=True)
     print(f"  temp_dir: {likelihood.temp_dir}", flush=True)
@@ -127,7 +127,7 @@ try:
     # Save output
     if rank == 0:
         src_final = f'{likelihood.out_dir}/final_{comp}.dat'
-        dst_final = f'hmf_trimmed_{hmf_sim}_data/final_{comp}_trimmed.dat'
+        dst_final = f'hmf_fiducial_{hmf_sim}_data/final_{comp}_fiducial.dat'
         if os.path.exists(src_final):
             shutil.copy2(src_final, dst_final)
             n_lines = sum(1 for _ in open(dst_final))

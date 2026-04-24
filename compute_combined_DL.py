@@ -57,18 +57,18 @@ def main():
     parser.add_argument('--extended', action='store_true',
                         help='Use full-range (extended / appendix) HMF outputs. Default: fiducial (restricted range).')
     args = parser.parse_args()
-    trimmed = not args.extended
+    fiducial = not args.extended
 
-    if trimmed:
-        top_500_file = 'top_500_trimmed.txt'
-        per_sim_filename = 'final_all_trimmed.txt'
-        outfile = 'hmf_combined_DL_trimmed_new.txt'
-        mode_label = 'TRIMMED'
+    if fiducial:
+        top_500_file = 'top_500_fiducial.txt'
+        per_sim_filename = 'final_all_fiducial.txt'
+        outfile = 'hmf_combined_DL_fiducial.txt'
+        mode_label = 'FIDUCIAL'
     else:
         top_500_file = 'top_500_all.txt'
         per_sim_filename = 'final_all.txt'
         outfile = 'hmf_combined_DL.txt'
-        mode_label = 'UNTRIMMED'
+        mode_label = 'EXTENDED'
 
     # Load the top 200 functions
     with open(top_500_file, 'r') as f:
@@ -111,11 +111,11 @@ def main():
     for i, func in enumerate(functions_200):
         af = get_aifeynman(func)
         aifeyn_cache[func] = af
-        if trimmed:
+        if fiducial:
             gencomp_cache[func] = get_generation_complexity(func)
         if i < 5 or (i+1) % 50 == 0:
             af_str = f"{af:.4f}" if af is not None else "None"
-            extra = f", gencomp = {gencomp_cache[func]}" if trimmed else ""
+            extra = f", gencomp = {gencomp_cache[func]}" if fiducial else ""
             print(f"  [{i+1}/200] aifeyn = {af_str}{extra} for {func[:50]}...")
 
     # Compute combined DL for each function
@@ -147,7 +147,7 @@ def main():
             'aifeyn': aifeyn,
             'n_sims': n_sims,
         }
-        if trimmed:
+        if fiducial:
             entry['gencomp'] = gencomp_cache.get(func)
         results.append(entry)
 
@@ -158,7 +158,7 @@ def main():
     print(f"Top 30 functions ranked by combined DL ({mode_label}) across {N} simulations")
     print(f"{'='*80}")
     best_DL = results[0]['DL_combined']
-    if trimmed:
+    if fiducial:
         print(f"{'Rank':>4} {'n_sims':>6} {'DL_combined':>16} {'delta_DL':>10} {'aifeyn':>8} {'comp':>4}  Function")
         print(f"{'-'*4} {'-'*6} {'-'*16} {'-'*10} {'-'*8} {'-'*4}  {'-'*40}")
         for i, r in enumerate(results[:30]):
@@ -174,7 +174,7 @@ def main():
 
     # Save full results
     with open(outfile, 'w') as f:
-        if trimmed:
+        if fiducial:
             f.write('# rank;function;DL_combined;delta_DL;sum_NLL;sum_DL;aifeynman;gencomp;n_sims\n')
             for i, r in enumerate(results):
                 delta = r['DL_combined'] - best_DL

@@ -5,8 +5,8 @@ Combines two tasks:
 2. Fit 17 re/im-stripped functions to all 100 sims and append to output files
 
 Usage:
-    addqueue -q cmb -n 2x20 -m 4 -c "HMF trimmed: recovery sims 41,61 + re/im" \
-        /usr/bin/env LD_LIBRARY_PATH=... PYTHONPATH=... python3 run_trimmed_hmf_recovery.py
+    addqueue -q cmb -n 2x20 -m 4 -c "HMF fiducial: recovery sims 41,61 + re/im" \
+        /usr/bin/env LD_LIBRARY_PATH=... PYTHONPATH=... python3 run_fiducial_hmf_recovery.py
 """
 
 import sys
@@ -81,20 +81,20 @@ def strip_re_im(func_str):
     return result
 
 
-def create_trimmed_data(sim_id):
-    """Create a trimmed data file (drop first 2 rows)."""
+def create_fiducial_data(sim_id):
+    """Create a fiducial data file (drop first 2 rows)."""
     src = f'data/hmf_files/hmf_{sim_id}.dat'
     data = np.loadtxt(src)
-    trimmed = data[2:]
-    dst_rel = f'hmf_files/hmf_{sim_id}_trimmed.dat'
+    fiducial = data[2:]
+    dst_rel = f'hmf_files/hmf_{sim_id}_fiducial.dat'
     dst_abs = os.path.join(os.getcwd(), dst_rel)
     os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
-    np.savetxt(dst_abs, trimmed, fmt='%.18e')
+    np.savetxt(dst_abs, fiducial, fmt='%.18e')
     return dst_rel
 
 
 def fit_str(func_str, data_path_rel):
-    """Fit a single function string to trimmed data with timeout."""
+    """Fit a single function string to fiducial data with timeout."""
     basis_functions = [["x", "a"],
                        ["inv", "exp", "log", "abs"],
                        ["+", "*", "-", "/", "pow"]]
@@ -108,7 +108,7 @@ def fit_str(func_str, data_path_rel):
     if Nconv_new <= 0 or Niter_new <= 0 or Nconv_new > Niter_new:
         return np.nan, np.nan, None
 
-    likelihood = PoissonLikelihood(data_path_rel, 'poisson_trimmed',
+    likelihood = PoissonLikelihood(data_path_rel, 'poisson_fiducial',
                                    data_dir='.', fn_set='base_e_maths')
 
     # Set alarm for timeout
@@ -147,7 +147,7 @@ def run_full_sim(sim_id, functions):
     """Fit all functions to one sim (for recovery sims 41, 61)."""
     print(f'Rank {rank}: FULL refit sim {sim_id} ({len(functions)} functions)', flush=True)
 
-    data_path_rel = create_trimmed_data(sim_id)
+    data_path_rel = create_fiducial_data(sim_id)
 
     data = []
     all_funcs = []
@@ -173,7 +173,7 @@ def run_full_sim(sim_id, functions):
 
     outdir = f'hmf_data/hmf_{sim_id}_data'
     os.makedirs(outdir, exist_ok=True)
-    outpath = os.path.join(outdir, 'final_all_trimmed.txt')
+    outpath = os.path.join(outdir, 'final_all_fiducial.txt')
 
     with open(outpath, 'w') as f:
         for i, (func, dl, nll, params) in enumerate(sorted_data):
@@ -184,10 +184,10 @@ def run_full_sim(sim_id, functions):
 
 def run_re_im_sim(sim_id, re_functions):
     """Fit re/im-stripped functions to one sim and append to results."""
-    data_path_rel = create_trimmed_data(sim_id)
+    data_path_rel = create_fiducial_data(sim_id)
 
     outdir = f'hmf_data/hmf_{sim_id}_data'
-    outpath = os.path.join(outdir, 'final_all_trimmed.txt')
+    outpath = os.path.join(outdir, 'final_all_fiducial.txt')
     existing_count = 0
     existing_funcs = set()
     if os.path.exists(outpath):
@@ -226,7 +226,7 @@ def run_re_im_sim(sim_id, re_functions):
 
 if __name__ == '__main__':
     # Load all 200 functions
-    with open('top_500_trimmed.txt', 'r') as f:
+    with open('top_500_fiducial.txt', 'r') as f:
         all_functions = [line.strip() for line in f][:200]
 
     # Identify re/im functions
