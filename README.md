@@ -366,7 +366,7 @@ If you use this code, please cite:
 ```
 Ford, Desmond, Bartlett & Ferreira (2026),
 "The functional form of galaxy and halo luminosity and mass functions"
-arXiv:XXXX.XXXXX
+arXiv:2604.23236
 ```
 
 and the ESR algorithm:
