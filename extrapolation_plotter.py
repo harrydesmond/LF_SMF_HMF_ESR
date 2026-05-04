@@ -338,7 +338,7 @@ if __name__ == '__main__':
     axes[2, 1].text(0.05, 0.95, r'HMF ($\sigma$)', transform=axes[2, 1].transAxes,
                     fontsize=13, va='top', ha='left', fontweight='bold')
 
-    # ── Overlay best PS-like function (rank 14, Eq 10) on HMF panels ──
+    # ── Overlay best PS-like function (rank 14) on HMF panels ──
     # f(σ) = |θ₀|^{θ₁ - |θ₂|^{ln σ}} / σ  (sim 50 params)
     _ps_func = 'np.power(np.abs(3.34541494),(-0.10935841 - np.power(np.abs(-0.17751593),np.log(x))))/x'
     # Left panel: phi vs logM
@@ -368,7 +368,7 @@ if __name__ == '__main__':
     # Local legend in both HMF panels
     from matplotlib.lines import Line2D as _L2D
     _ps_handle = [_L2D([], [], color='darkcyan', ls='-', lw=1.4)]
-    _ps_label = [r'PS-like (Eq. 10)']
+    _ps_label = [r'PS-like']
     axes[2, 0].legend(handles=_ps_handle, labels=_ps_label,
                        loc='upper right', fontsize=9, framealpha=0.8)
     axes[2, 1].legend(handles=_ps_handle, labels=_ps_label,

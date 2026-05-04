@@ -383,13 +383,13 @@ for name in ['P.Sch.', 'War.', 'Tin.']:
     ax_nll.plot(logM_50, (lam - counts_50 * np.log(lam)) - nll1_bins,
                 color=LIT_COLOURS[name], ls=LIT_STYLES[name], lw=0.8)
 
-# Best PS-like passing physicality checks (rank 14, Eq 10)
+# Best PS-like passing physicality checks (rank 14)
 _ps_params = [3.34541494, -0.10935841, -0.17751593]
 with np.errstate(all='ignore'):
     _f_ps = np.power(np.abs(_ps_params[0]), (_ps_params[1] - np.power(np.abs(_ps_params[2]), np.log(sigma_50)))) / sigma_50
 _phi_ps = _f_ps * factor_50
 _y_ps = np.log10(np.where(_phi_ps > 0, _phi_ps, 1e-300))
-ax_data.plot(logM_50, _y_ps, color='darkcyan', lw=1.4, label=r'PS-like (Eq. 10)', zorder=5)
+ax_data.plot(logM_50, _y_ps, color='darkcyan', lw=1.4, label=r'PS-like', zorder=5)
 ax_res.plot(logM_50, (_y_ps - y_50) / y_err_50, color='darkcyan', lw=0.8)
 _lam_ps = _f_ps * factor_50 * Veff * delta_logm
 _lam_ps = np.where(_lam_ps > 0, _lam_ps, 1e-300)

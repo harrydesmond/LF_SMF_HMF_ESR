@@ -185,6 +185,7 @@ Results files written by these scripts: `fisher_det_results.txt`,
 | `nll_contributions.py` | Per-bin δ-NLL contributions |
 | `extrapolation_plotter.py` | Functions extrapolated beyond data range |
 | `extrapolation_HMF_sigma.py` | HMF extrapolation in σ-space (helper) |
+| `plot_schechter_like_variants.py` | Schechter-like LF/SMF Appendix A table data + plots |
 | `histogram_and_stacked_plots.py` | Ranking histogram + stacked bar chart |
 | `veff_plotter.py` | Effective survey volume vs L/M |
 
@@ -208,10 +209,10 @@ search on this restricted range. The scripts below implement this pipeline:
 | `run_fiducial_hmf_re.py` | Fit functions with sympy `re()`/`im()` artifacts | Cluster (MPI) |
 | `build_fiducial_table.py` | Paper table data | Local |
 | `fiducial_checks_and_plots.py` | Physicality checks + restricted-range plots | Local |
-| `generate_extended_appendix.py` | Appendix HMF Pareto + extrapolation plots | Local |
+| `generate_extended_appendix.py` | Appendix B HMF Pareto + extrapolation plots | Local |
 
 `generate_extended_appendix.py` produces the full-range Pareto +
-extrapolation figures for Appendix A, with enlarged fonts matching Fig A1.
+extrapolation figures for Appendix B, with enlarged fonts matching the appendix figures.
 It imports `make_single_panel_figure` from `Pareto_plotter.py`.
 
 Notes on the plotting scripts:
@@ -227,6 +228,12 @@ Notes on the plotting scripts:
 - `function_plotter.py` accepts a `skip_sources` argument so the Fig 1
   panels can drop `DblSch.`/`Ber.orig` without editing the
   final-functions files.
+- `plot_schechter_like_variants.py` scans the LF/SMF per-complexity ESR
+  outputs for strict Schechter-like low-x asymptotes
+  `phi(x) ~ C x^p` with `-1 < p < 0`, applies the same duplicate-removal
+  convention as the main LF/SMF tables, writes the Table A1 source data to
+  `Plots/schechter_like_table_data.txt`, and writes the Appendix A plots to
+  `Plots/` and `Final_Plots/`.
 
 ## Intermediate data files
 
@@ -251,6 +258,7 @@ Produced by the fitting scripts and consumed by plotting/analysis scripts:
 | `hmf_50_final_functions_fiducial.txt` | `build_final_functions.py` ¹ | Per-complexity best + literature for sim 50 |
 | `hmf_fiducial_searchcomp.txt` | `build_searchcomp.py` | Function → search-complexity (fiducial) |
 | `hmf_func_gencomp.txt` ² | `build_searchcomp.py --extended` | Function → search-complexity (full range) |
+| `Plots/schechter_like_table_data.txt` | `plot_schechter_like_variants.py` | Appendix A Schechter-like LF/SMF table source data |
 
 ¹ Exact command:
 ```
@@ -324,11 +332,19 @@ A typical end-to-end workflow:
    python3 veff_plotter.py
    python3 histogram_and_stacked_plots.py      # or sample_top_200.py step3
 
-7b. Full-range (extended) HMF — Appendix A of the paper
+7a. Schechter-like LF/SMF functions — Appendix A of the paper
+   # Requires LF/SMF ESR outputs up to complexity 10, paper/literature fits,
+   # and *_final_functions.txt from §5.
+   python3 plot_schechter_like_variants.py
+   # -> Plots/schechter_like_table_data.txt
+   # -> Final_Plots/Pareto_LF_SMF_schechter_like_overlay.pdf
+   # -> Final_Plots/extrapolation_schechter_like.pdf
+
+7b. Full-range (extended) HMF — Appendix B of the paper
    python3 compute_combined_DL.py --extended
    python3 fit_literature_all_sims.py --extended
    python3 build_searchcomp.py --extended      # -> hmf_func_gencomp.txt
-   python3 generate_extended_appendix.py      # Appendix A figures
+   python3 generate_extended_appendix.py       # Appendix B figures
    python3 find_PS_like_functions.py --extended
 
 8. Covariance, Fisher and propagated-impact diagnostics — §4.5, §5
