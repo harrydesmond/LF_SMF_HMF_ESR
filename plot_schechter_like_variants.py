@@ -3,17 +3,8 @@
 Creates:
   - Plots/Pareto_LF_SMF_schechter_like_overlay.png
   - Plots/extrapolation_schechter_like.png
-  - Plots/schechter_like_table_data.txt
   - Final_Plots/Pareto_LF_SMF_schechter_like_overlay.pdf
   - Final_Plots/extrapolation_schechter_like.pdf
-
-Inputs:
-  - LF/SMF ESR per-complexity files:
-      LF_Ser_L_data/final_<comp>[_new].dat
-      LF_cmodel_L_data/final_<comp>[_new].dat
-      SMF_Ser_M_data/final_<comp>[_new].dat
-      SMF_cmodel_M_data/final_<comp>[_new].dat
-  - LF/SMF final-function summary files from build_final_functions.py.
 
 The Schechter-like criterion is a true low-x power-law rise,
 f(x) ~ C x^p with -1 < p < 0.  The classifier is deliberately stricter
@@ -99,10 +90,7 @@ LOWER_X_CUTS = {
 
 
 def complexity_from_path(path):
-    match = re.search(r"final_(\d+)(?:_new)?\.dat$", path)
-    if match is None:
-        raise ValueError(f"Could not parse complexity from {path}")
-    return int(match.group(1))
+    return int(re.search(r"final_(\d+)\.dat$", path).group(1))
 
 
 def safe_raw_eval(expr, x, params):
@@ -195,64 +183,6 @@ def load_schechter_like_candidates(data_set):
                 })
     rows.sort(key=lambda row: row["dl"])
     return rows
-
-
-def load_all_esr_rows(data_set):
-    """Load all finite ESR rows scanned for a dataset, not only Schechter-like rows."""
-    info = DATASETS[data_set]
-    rows = []
-    for path in sorted(glob.glob(info["pattern"]), key=complexity_from_path):
-        comp = complexity_from_path(path)
-        with open(path) as handle:
-            for lineno, line in enumerate(handle, 1):
-                if lineno > MAX_LINES_PER_COMPLEXITY:
-                    break
-                parts = line.rstrip("\n").split(";")
-                if len(parts) < 7:
-                    continue
-                try:
-                    dl = float(parts[2])
-                    nll = float(parts[4])
-                except Exception:
-                    continue
-                if not (np.isfinite(dl) and np.isfinite(nll)):
-                    continue
-                if dl > 0 or nll > 0:
-                    continue
-                rows.append({
-                    "path": path,
-                    "line": lineno,
-                    "rank_in_complexity": int(parts[0]),
-                    "expr": parts[1],
-                    "dl": dl,
-                    "nll": nll,
-                    "complexity": comp,
-                })
-    rows.sort(key=lambda row: row["dl"])
-    return rows
-
-
-def p_formula_and_value(row):
-    """Return the analytic low-x slope formula for the selected Appendix rows."""
-    expr = row["expr"]
-    a0, a1, a2, _ = row["params"]
-    if expr == "pow(x,a0)*exp(-pow(Abs(a1 - x),a2))":
-        return "a0", a0
-    if expr == "a0*pow(x,(a1 + pow(Abs(a2),x)))":
-        return "a1 + 1", a1 + 1.0
-    if expr == "pow(x,a0)/(a1 + exp(pow(x,a2)))":
-        return "a0", a0
-    if expr == "pow(Abs(a0),(x + log(x)))/(a1 + x)":
-        return "log(abs(a0))", math.log(abs(a0))
-    if expr == "a0*pow(x,(-exp(a1) + pow(Abs(a2),x)))":
-        return "1 - exp(a1)", 1.0 - math.exp(a1)
-    if expr == "a0/pow(x,(pow(Abs(a1),(pow(Abs(a2),x)))))":
-        return "-abs(a1)", -abs(a1)
-    if expr == "a0/pow(x,log(Abs((a1 - x)/a2)))":
-        return "-log(abs(a1/a2))", -math.log(abs(a1 / a2))
-    if expr == "pow((x*exp(re(pow(Abs(a0 - x),a1)))),a2)":
-        return "a2", a2
-    return "numeric low-x classifier", row["p"]
 
 
 def format_function(expr):
@@ -378,6 +308,10 @@ def plot_pareto_panel(fig, cell, data_set, candidates, title):
     all_comp = np.concatenate([comp, front["complexity"]])
     segments = split_complexity_segments(all_comp, min_gap=3, pad=0.35)
     segments = apply_lower_x_cut(segments, LOWER_X_CUTS.get(data_set))
+    # Fill in tick 22 between Saunders (21) and Bernardi-orig (23), matching Fig 2
+    for j, (xmin_s, xmax_s, ticks_s) in enumerate(segments):
+        if xmin_s <= 22 <= xmax_s and 22 not in ticks_s:
+            segments[j] = (xmin_s, xmax_s, sorted(ticks_s + [22]))
 
     width_ratios = [max(xmax - xmin, 0.5) for xmin, xmax, _ in segments]
     inner = cell.subgridspec(1, len(segments), wspace=0.05,
@@ -413,6 +347,7 @@ def plot_pareto_panel(fig, cell, data_set, candidates, title):
         "Ber.": "+",
         "Ber.orig": "1",
         "DblSch.": "d",
+        "Sau.": "p",
     }
 
     sl_comp = front["complexity"]
@@ -494,7 +429,7 @@ def plot_extrapolation_schechter_like(data_set, ax, candidates, title, xlabel,
                                       x_extrap_range, inset_xlim, plot_xlim,
                                       lit_keys=None):
     if lit_keys is None:
-        lit_keys = ["Sch.", "Ber.orig", "DblSch.", "Ber."]
+        lit_keys = ["Sch.", "Ber.orig", "DblSch.", "Ber.", "Sau."]
 
     x_data, y_data, y_err, logm_data = load_lf_smf(data_set)
     x_eval = np.geomspace(x_extrap_range[0], x_extrap_range[1], 5000)
@@ -601,6 +536,7 @@ def make_pareto_overlay(candidates_by_dataset):
         Line2D([], [], color="grey", marker="x", linestyle="None", ms=8),
         Line2D([], [], color="grey", marker="d", linestyle="None", ms=8),
         Line2D([], [], color="grey", marker="1", linestyle="None", ms=8),
+        Line2D([], [], color="grey", marker="p", linestyle="None", ms=8),
     ]
     labels = [
         "ESR",
@@ -609,8 +545,9 @@ def make_pareto_overlay(candidates_by_dataset):
         "Schechter",
         "Dbl. Schechter",
         "Bernardi (orig.)",
+        "Saunders",
     ]
-    fig.legend(handles, labels, loc="upper center", ncol=6, fontsize=10,
+    fig.legend(handles, labels, loc="upper center", ncol=7, fontsize=10,
                bbox_to_anchor=(0.5, 0.995), frameon=True)
 
     out = "Plots/Pareto_LF_SMF_schechter_like_overlay.png"
@@ -673,48 +610,6 @@ def make_extrapolation_variant(candidates_by_dataset):
     return out, pdf_out, selected
 
 
-def write_table_data(candidates_by_dataset):
-    out = "Plots/schechter_like_table_data.txt"
-    with open(out, "w") as handle:
-        handle.write(
-            "# Table A1 source data for the Schechter-like LF/SMF appendix.\n"
-            "# rank_full and deltas are relative to the scanned ESR rows across "
-            "complexities up to MAX_LINES_PER_COMPLEXITY.\n"
-            "# dataset;order;rank_full;comp;p_formula;p_value;delta_DL;delta_NLL;"
-            "expr;params;source_file;source_line\n"
-        )
-        for data_set, candidates in candidates_by_dataset.items():
-            all_rows = load_all_esr_rows(data_set)
-            if not all_rows:
-                raise RuntimeError(f"No ESR rows found for {data_set}")
-            rank_map = {(row["path"], row["line"]): idx + 1
-                        for idx, row in enumerate(all_rows)}
-            dl_ref = all_rows[0]["dl"]
-            nll_ref = all_rows[0]["nll"]
-            for order, row in enumerate(top_unique_candidates(data_set, candidates, n_keep=2), 1):
-                p_formula, p_value = p_formula_and_value(row)
-                params = ",".join(f"{p:.12g}" for p in row["params"])
-                handle.write(
-                    "{dataset};{order};{rank_full};{comp};{p_formula};"
-                    "{p_value:.12g};{delta_dl:.6f};{delta_nll:.6f};"
-                    "{expr};{params};{path};{line}\n".format(
-                        dataset=data_set,
-                        order=order,
-                        rank_full=rank_map[(row["path"], row["line"])],
-                        comp=row["complexity"],
-                        p_formula=p_formula,
-                        p_value=p_value,
-                        delta_dl=row["dl"] - dl_ref,
-                        delta_nll=row["nll"] - nll_ref,
-                        expr=row["expr"],
-                        params=params,
-                        path=row["path"],
-                        line=row["line"],
-                    )
-                )
-    return out
-
-
 def main():
     os.makedirs("Plots", exist_ok=True)
     candidates_by_dataset = {}
@@ -724,33 +619,19 @@ def main():
             raise RuntimeError(f"No Schechter-like candidates found for {data_set}")
         candidates_by_dataset[data_set] = candidates
         print(f"{data_set}: {len(candidates)} strict Schechter-like candidates")
-        all_rows = load_all_esr_rows(data_set)
-        if not all_rows:
-            raise RuntimeError(f"No ESR rows found for {data_set}")
-        rank_map = {(row["path"], row["line"]): idx + 1
-                    for idx, row in enumerate(all_rows)}
-        dl_ref = all_rows[0]["dl"]
-        nll_ref = all_rows[0]["nll"]
         for row in top_unique_candidates(data_set, candidates, n_keep=4):
-            p_formula, p_value = p_formula_and_value(row)
-            print("  rank {rank_full} comp {complexity} p={formula}={p_value:.6g} "
-                  "DeltaDL={delta_dl:.1f} DeltaNLL={delta_nll:.1f} "
-                  "{path}:{line} {expr}".format(
-                      rank_full=rank_map[(row["path"], row["line"])],
-                      formula=p_formula,
-                      p_value=p_value,
-                      delta_dl=row["dl"] - dl_ref,
-                      delta_nll=row["nll"] - nll_ref,
-                      **row))
+            delta_dl = row["dl"] - min(float(open(p).readline().split(";")[2])
+                                       for p in glob.glob(DATASETS[data_set]["pattern"]))
+            print("  comp {complexity} rank {rank} p={p:.6g} "
+                  "DeltaDL={delta:.1f} {path}:{line} {expr}".format(
+                      delta=delta_dl, **row))
 
     pareto_out, pareto_pdf = make_pareto_overlay(candidates_by_dataset)
     extrap_out, extrap_pdf, selected = make_extrapolation_variant(candidates_by_dataset)
-    table_out = write_table_data(candidates_by_dataset)
     print(f"Saved {pareto_out}")
     print(f"Saved {pareto_pdf}")
     print(f"Saved {extrap_out}")
     print(f"Saved {extrap_pdf}")
-    print(f"Saved {table_out}")
 
 
 if __name__ == "__main__":

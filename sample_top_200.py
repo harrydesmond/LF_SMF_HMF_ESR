@@ -94,7 +94,7 @@ def fit_str(string,hmf_sim):
     done = False
     while count < 20 and done == False:
         count += 1
-        
+
         logl_lcdm, dl_lcdm, tree, params = fit_from_string(string,
                                                 basis_functions,
                                                 likelihood,
@@ -129,7 +129,7 @@ def check_final_length(hmf_sims):
             comp = '10'
             ranking, function, DL, prel, nll, codelen, aifeyn, a0, a1, a2, a3 = np.loadtxt(os.path.join(DATA_DIR, "hmf_{0}_data/final_{1}_sample.dat".format(hmf_sim,comp)), unpack=True, dtype=str, delimiter=";")
             # ranking, function, DL, prel, nll, codelen, aifeyn, a0, a1, a2, a3 = np.loadtxt("hmf_{0}_data/output/output_poisson_example/final_{1}.dat".format(hmf_sim,comp), unpack=True, dtype=str, delimiter=";")
-            
+
             lengths.append(len(ranking))
             hmf_sims.append(hmf_sim)
 
@@ -164,7 +164,7 @@ def format_function(fcn):
 
     # Removes duplicates, specifically negative constants
     fcn = new_fcn.replace('-a','a')
-    
+
     return fcn
 
 
@@ -360,7 +360,7 @@ def get_uniq_top_200(hmf_sims):
             data = []
             for idx, NLL_i in enumerate(NLL):
                 fcn = format_function(function[idx])
-                
+
                 if (np.isfinite(float(DL[idx])) == False) or (np.isfinite(float(NLL[idx])) == False) or ('re' in function[idx]) or (float(DL[idx]) > 0) or (float(NLL[idx]) > 0):
                     continue
 
@@ -379,7 +379,7 @@ def get_uniq_top_200(hmf_sims):
             for idx, row in enumerate(sorted_combined):
                 if row[0] not in seen:
                     cleaned_data.append(row)
-                    seen.append(row[0])               
+                    seen.append(row[0])
 
             fcn_sorted, DL_sorted, NLL_sorted, comp_sorted = list(zip(*cleaned_data))
 
@@ -389,7 +389,7 @@ def get_uniq_top_200(hmf_sims):
             NLL = np.array(list(NLL_sorted)).astype(float)
             comp_list = np.array(list(comp_sorted)).astype(int)
             ranking = np.arange(0,len(function),1)
-            
+
 
             # --- Now to compare across sims... --- #
 
@@ -420,7 +420,7 @@ def get_uniq_top_200(hmf_sims):
     # --- Order by ranking --- #
     sorted_combined = sorted(ordered_unique_best, key=lambda x: x[0], reverse=False)
     ranking_sorted, fcn_sorted, DL_sorted, NLL_sorted = zip(*sorted_combined)
-    
+
     ranking = np.array(list(ranking_sorted)).astype(str)
     function = np.array(list(fcn_sorted)).astype(str)
     DL = np.array(list(DL_sorted)).astype(str)
@@ -457,13 +457,13 @@ def gather_barchart_data(hmf_sims):
         unique_best_rank_str.append('')
 
     # Tally DL and rank to each function for each hmf sim data
-    
+
     hmf_sims_actual = [] # In case any sims were not used for whatever reason... sometimes it was useful to only use a select few for convenience
 
     for hmf_sim in hmf_sims:
         try:
 #        if True:
-            
+
             ranking, function, DL, nll =  np.loadtxt("hmf_{0}_data/final_all.txt".format(hmf_sim), unpack=True, dtype=str, delimiter=";", usecols=(0,1,2,3))
             hmf_sims_actual.append(hmf_sim)
 
@@ -496,7 +496,7 @@ def gather_barchart_data(hmf_sims):
                 fcn_i = format_function(fcn_i)
                 if fcn_i == fcn_j:
                     found = True
-                    
+
                     if unique_best_DL_str[idx_i] == '': # Never been found before
                         unique_best_DL_str[idx_i] = str(local_unique_DL[idx_j])
                         unique_best_rank_str[idx_i] = str(local_unique_ranking[idx_j])
@@ -515,7 +515,7 @@ def gather_barchart_data(hmf_sims):
 
     # zipped = remove_non_generalised(zipped, hmf_sims_actual)
     # This ^ was decided not to do...
-   
+
     # Converts to a list... more useful later on
     zipped_list = []
     for row in zipped:
@@ -555,12 +555,12 @@ def create_all_plots(zipped, hmf_sims):
 
         if gold==0 and silver==0 and bronze==0 and fourth==0 and fifth==0:# and sixth==0:
             pass
-        else: 
+        else:
 #            data.append([gold, silver, bronze, fourth, fifth, sixth, total, row[1], row[0]])
             data.append([gold, silver, bronze, fourth, fifth, total, row[1], row[0]])
 
     ordered_gold = sorted(data, key = lambda x: x[-3])
-    
+
     # Flip for appropriate order
     ordered_gold = list(reversed(ordered_gold))
 
@@ -574,9 +574,9 @@ def create_all_plots(zipped, hmf_sims):
     import sympy as sp
     x = sp.symbols('x', positive=True)
     a0, a1, a2, a3 = sp.symbols('a0 a1 a2 a3', real=True)
-    
+
     ranking, function, DL, nll, params =  np.loadtxt("hmf_0_data/final_all.txt", unpack=True, dtype=str, delimiter=";", usecols=(0,1,2,3,4))
-    
+
     for x_val, row in enumerate(ordered_gold):
         f = row[-1]
         idx = list(function).index(f)
@@ -587,7 +587,7 @@ def create_all_plots(zipped, hmf_sims):
 
         print(f"\nFunction: {f}")
 
-    
+
     # --- Plot 1 --- #
     fig = plt.figure(figsize=(10, 5))
     gs = gridspec.GridSpec(1, 2, width_ratios=[3, 1])
@@ -596,7 +596,7 @@ def create_all_plots(zipped, hmf_sims):
 
     # Create bottom array for stacking
     categories = len(ordered_gold)
-    
+
     if categories > 26:
         ordered_gold = ordered_gold[:26]
         categories = len(ordered_gold)
@@ -613,12 +613,12 @@ def create_all_plots(zipped, hmf_sims):
 
         ax.bar(x_plot, y_plot, bottom=bottom, label=sub_category, color=color)
         bottom += y_plot
-    
+
     ax.set_xlabel('Functions')
     ax.set_xticks(x_plot, x_ticks)
     ax.set_ylabel('Number of Ranks Earned (in {} simulations)'.format(len(hmf_sims)))
     ax.legend(sub_categories)
-    
+
     labels = []
 
     # Add function list to ax2
@@ -634,7 +634,7 @@ def create_all_plots(zipped, hmf_sims):
         text_fcn = text_fcn.replace('a0',r'\theta_0').replace('a1',r'\theta_1').replace('a2',r'\theta_2').replace('a3',r'\theta_3').replace('x',r'\sigma').replace('eXp','exp')
 
         text_fcn = text_fcn.replace('e^', ' e^')
-        
+
         text = '{}: '.format(x_ticks[idx]) + r'${}$'.format(text_fcn)
 
         labels.append(text_fcn)
@@ -688,7 +688,7 @@ def create_all_plots(zipped, hmf_sims):
                     missed_fcn = ordered_gold[val_idx][-1]
                     missed.append([missed_fcn, idx])
 #                DL[val_idx] = np.nan
-    
+
         scaled_DL = DL - min(DL)
         all_y_data.append(list(scaled_DL))
 
@@ -700,13 +700,13 @@ def create_all_plots(zipped, hmf_sims):
     # -- Ordering the data -- #
     data = all_y_data[:5]
     data = np.transpose(data) # Top 5 functions data, grouped by hmf_sim
-    
+
     differences = []
     for i in data:
         differences.append(min(i) - min(np.delete( i, list(i).index(min(i)) )) )
 
     sorted_indices = np.argsort(differences)
-    
+
     sorted_data = data[sorted_indices]
     data = np.transpose(sorted_data)
 
@@ -716,7 +716,7 @@ def create_all_plots(zipped, hmf_sims):
 
     ax.set_xlim([hmf_sims[0],hmf_sims[-1]])
     ax.set_ylim(top=max(max_heights)*1.1, bottom=0.001)
-    
+
     ax.legend(ncols=5)
     plt.tight_layout()
     plt.savefig('DL_scatter.pdf',bbox_inches='tight')
@@ -741,7 +741,7 @@ def create_all_plots(zipped, hmf_sims):
 #        x = np.linspace(0, 35 + bin_width, bin_width)
 #        print(r'${}$'.format(labels[idx]))
 #        ax.hist(data, bins=binwidth, range=(0,35), alpha=0.3, density=True, histtype='bar', color=cm(idx/6), label=r'${}$'.format(labels[idx]), zorder=6-idx)
-#    
+#
 #    #    kde = gaussian_kde(data, bw_method=0.1)
 #    #    if rank == 1:
 #    #        bw = kde.factor
@@ -753,7 +753,7 @@ def create_all_plots(zipped, hmf_sims):
 #    #    ax.plot(x,y,color=cm(idx/5), zorder=5-idx)
 #
 #        #sns.kdeplot(x, ax=ax, fill=True, color=cm(idx/5), label=r'${}$'.format(labels[idx]), zorder=5-idx, cut=0, bw_adjust=.75)
-#        
+#
 #        if idx == 0 and max(data) > 0.6:
 #            # Surpasses y maximum
 #            ax.text(2, 0.55, s='Peak height: {}'.format(round(max(data),2)))
@@ -789,7 +789,7 @@ def create_all_plots(zipped, hmf_sims):
                  boxprops=dict(facecolor='lightgray', color='black'),
                  medianprops=dict(color='black'),
                  zorder = 1)
-    
+
 #    for i in range(len(data)):
 #        # Box
 #        box['boxes'][i].set_facecolor(cm(i/5))
@@ -832,7 +832,7 @@ def create_all_plots(zipped, hmf_sims):
 
 
 
-        
+
 
 
 if __name__ == '__main__':

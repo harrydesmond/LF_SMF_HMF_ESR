@@ -118,7 +118,7 @@ class MemoryWatchdog(threading.Thread):
                     print(f"[Watchdog]   WARNING: Exceeded {self.threshold_mb} MB")
 
             time.sleep(self.interval)
-    
+
     def checkpoint(self):
         elapsed = time.time() - self.start_time
         mem_mb = self.get_memory_mb()
@@ -134,7 +134,7 @@ class MemoryWatchdog(threading.Thread):
 #
 #    ... code to be monitored ...
 #
-#    watchdog.stop() 
+#    watchdog.stop()
 
 
 # -------------------------------------------------------------------
@@ -596,7 +596,7 @@ def run_hmf_esr_fits(hmf_sim_val, comp):
                 writer.write(line)
 
     watchdog.stop()
-        
+
 # --- Run fits on SMF or LF data --- #
 def run_galaxy_esr_fits(sim_name, comp, data_dir='.'):
 
@@ -654,11 +654,11 @@ def run_galaxy_esr_fits(sim_name, comp, data_dir='.'):
         with open("{0}_data/final_{1}.dat".format(sim_name,comp), 'w') as writer:
             for line in reader:
                 writer.write(line)
-   
+
     watchdog.checkpoint()
     watchdog.stop()
 
-    
+
 # --- Define Paper equations --- #
 def def_pap_eq():
     # HMF Schechter
@@ -675,7 +675,7 @@ def def_pap_eq():
 
     # Bernardi
     eq_4_str = "a0*pow(x,a1)*exp(-a2*pow(x,a3))-a4*pow(x,a5)*exp(-a6*x)"
-    
+
     return eq_1_str, eq_1_tree, eq_2_str, eq_2_tree,eq_3_str, eq_3_tree, eq_4_str
 
 
@@ -705,7 +705,7 @@ def fit_str(string,basis_functions,hmf_sim,data_dir='.'):
 
     else:
         likelihood = PoissonLikelihood('data/hmf_files/hmf_{}.dat'.format(hmf_sim), 'poisson_example', data_dir=data_dir, fn_set='base_e_maths')
-    
+
     count = 0
     done = False
     while count < 20 and done == False:
@@ -722,7 +722,7 @@ def fit_str(string,basis_functions,hmf_sim,data_dir='.'):
 
         #NOTE: The following actually needs to be given the tree
         #logl_lcdm, dl_lcdm, params = single_function(string, basis_functions, likelihood, Niter=Niter_new, Nconv=Nconv_new, return_params=True)
-        
+
         try:
             a = float(logl_lcdm)
             b = float(dl_lcdm)
@@ -747,7 +747,7 @@ def fit_str(string,basis_functions,hmf_sim,data_dir='.'):
 # --- Fits paper functions ---
 def fitting_paper(hmf_sim, data_dir='.'):
     eq_1_str, eq_1_tree, eq_2_str, eq_2_tree,eq_3_str, eq_3_tree, eq_4_str = def_pap_eq()
-    
+
     # ----- #
     basis_functions = [["x", "a"],  # type0
                 ["inv","exp","log","abs", "gamma"],  # type1
@@ -778,7 +778,7 @@ def fitting_paper(hmf_sim, data_dir='.'):
 #        L = -np.log10((params[2]*10**(-10))/np.log10(np.exp(1)))
 #    #    L = 1/(params[2]*10**(-10))/np.log10(np.exp(1)) # for x = M not logM
 #        n = 10**params[0] * 10**(L*a)
-#        
+#
 #        fcn = 'n*pow((pow(10,x)/pow(10,L)),a)*exp(-pow(10,x)/pow(10,L))'
 #        actual_fcn = fcn.replace('n',str(n)).replace('L',str(L)).replace('a',str(a))
 #        all_paper_data.append(format_line(['50', 'Sch.', 10, actual_fcn, logl_lcdm, dl_lcdm, params]))
@@ -817,7 +817,7 @@ def fitting_paper(hmf_sim, data_dir='.'):
     else:
         if rank == 1:
             print('LF or SMF')
-        
+
 
         # phi   X_star alpha beta  phi_g X_g    gamma
         # "phi_alpha*beta*pow(x/X_star,alpha)*exp(-1*pow(x/X_star,beta))/Gamma(alpha/beta)+phi_gamma*pow(x/X_gamma,gamma)*exp(-x/X_gamma)"
@@ -875,7 +875,7 @@ def fitting_paper(hmf_sim, data_dir='.'):
     if rank == 1:
         print("DONE\n")
         print(all_paper_data)
-    
+
         for line in all_paper_data:
             print(line)
 

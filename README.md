@@ -9,6 +9,23 @@ functions for the galaxy luminosity function (LF), stellar mass function
 (SMF), and halo mass function (HMF), ranking them by description length and
 subjecting them to physicality checks.
 
+## Quick start: fitting ESR functions to your data
+
+The easiest way to use the best ESR functions from the paper is via the
+interactive notebook **[`fit_esr_functions.ipynb`](fit_esr_functions.ipynb)**.
+It provides:
+
+- The best ESR functions for the LF (Sérsic and cmodel), SMF (Sérsic and
+  cmodel), and HMF, with the paper's best-fit parameters as defaults.
+- A Poisson-likelihood fitting routine to refit these functions to your own
+  data.
+- Plots comparing the fits to the data.
+
+The notebook runs out of the box on the included datasets; to use your own
+data, follow the instructions at the top of the notebook. Only `numpy`, `scipy` and `matplotlib` are needed.
+
+The rest of the repository (and this README) are for reproducing the full results of the paper.
+
 ## Requirements
 
 ### Python packages
@@ -132,9 +149,15 @@ The analysis proceeds in several stages. Below they are grouped by function.
 | `create_LF_cmodel_L_data.py` | LF cmodel: magnitude → luminosity |
 | `fit_all.py` | ESR pipeline / literature fits for any dataset |
 | `sample_top_200.py` | Three-stage HMF pipeline (`step1`/`step2`/`step3`) |
+| `select_pf_candidates_v2.py` | Current fiducial HMF v2 candidate selection: no `MIN_SIMS` gate |
+| `refit_pf.py` | Current fiducial HMF 100-realisation multistart refit |
+| `refit_pf_extended.py` | Current extended-range refit of the v2 fiducial candidate pool |
 | `fit_literature_all_sims.py` | Fit Press-Schechter / Warren / Tinker to all 100 Quijote sims |
+| `fit_lit_st_jenkins.py` | Fit Sheth-Tormen / Jenkins on the fiducial HMF range |
+| `fit_lit_st_jenkins_extended.py` | Fit Sheth-Tormen / Jenkins on the extended HMF range |
 | `build_final_functions.py` | Assemble `*_final_functions.txt` |
 | `build_searchcomp.py` | Function → search-complexity mapping |
+| `build_hmf_table.py` | Rebuild the current fiducial HMF Table 3 from `pf_refit_combined.txt` |
 
 Flag: `fit_literature_all_sims.py` and `build_searchcomp.py` default to the
 fiducial (restricted) range; pass `--extended` for the full-range version.
@@ -144,7 +167,9 @@ Typical invocations:
 python3 create_LF_cmodel_L_data.py
 mpirun -np N python3 fit_all.py <dataset> esr <complexity>
 python3 fit_all.py <dataset> paper
-python3 sample_top_200.py step1|step2|step3
+python3 select_pf_candidates_v2.py
+python3 refit_pf.py
+python3 refit_pf_extended.py
 python3 fit_literature_all_sims.py [--extended]
 python3 build_final_functions.py <dataset> [options]
 python3 build_searchcomp.py [--extended]
@@ -166,8 +191,9 @@ python3 build_searchcomp.py [--extended]
 Flag: `compute_combined_DL.py`, `find_PS_like_functions.py`, and
 `hmf_covariance_analysis.py` default to the fiducial (restricted) range used
 in the main text; pass `--extended` for the full-range (appendix) version.
-`find_PS_like_functions.py` in fiducial mode produces the "26 PS-like in
-top 200" number quoted in Sec 4.3. The fiducial `hmf_covariance_analysis.py`
+The final fiducial HMF v2 pool contains 78 PS-like functions in the top 200;
+`find_PS_like_functions.py` is retained as an audit helper for this asymptotic
+classification. The fiducial `hmf_covariance_analysis.py`
 is the 15-bin analysis quoted in Sec 4.5 (median var/mean ≈ 0.95,
 max |ρ| ≈ 0.34); it writes `hmf_covariance_results[_fiducial].txt` and
 `Final_Plots/hmf_correlation_matrix[_fiducial].pdf`.
@@ -203,17 +229,23 @@ search on this restricted range. The scripts below implement this pipeline:
 | Script | Description | Runs on |
 |--------|-------------|---------|
 | `run_hmf_fiducial_step1.py` | Full ESR (complexities 4–10) on 10 representative sims | Cluster (MPI) |
-| `run_hmf_fiducial_step2.py` | Identify top 200 by mean rank → `top_500_fiducial.txt` | Cluster |
-| `run_fiducial_hmf.py` | Refit top 200 to all 100 sims | Cluster (MPI) |
+| `run_hmf_fiducial_step2.py` | Legacy mean-rank candidate selector, superseded by `select_pf_candidates_v2.py` for the paper | Cluster |
+| `select_pf_candidates_v2.py` | Current v2 selector: union of top-3000 functions in any one of ten selection realisations, donor-filled/refit on all ten, then top 200 per complexity by combined NLL | Cluster (multiprocessing) |
+| `refit_pf.py` | Current paper refit: refit the 1000 selected candidates independently on all 100 fiducial realisations and rank by combined DL | Cluster (multiprocessing) |
+| `refit_pf_extended.py` | Refit the same v2 candidate pool on the extended HMF range for Appendix B/Fig B2 | Cluster (multiprocessing) |
+| `run_fiducial_hmf.py` | Legacy refit path for the pre-v2 candidate set | Cluster (MPI) |
 | `run_fiducial_hmf_recovery.py` | Recovery for timed-out sims + re/im-stripped fits | Cluster (MPI) |
 | `run_fiducial_hmf_re.py` | Fit functions with sympy `re()`/`im()` artifacts | Cluster (MPI) |
-| `build_fiducial_table.py` | Paper table data | Local |
+| `build_hmf_table.py` | Current Table 3 reconstruction from `pf_refit_combined.txt` | Local |
+| `build_fiducial_table.py` | Legacy pre-v2 table builder | Local |
 | `fiducial_checks_and_plots.py` | Physicality checks + restricted-range plots | Local |
 | `generate_extended_appendix.py` | Appendix B HMF Pareto + extrapolation plots | Local |
 
 `generate_extended_appendix.py` produces the full-range Pareto +
-extrapolation figures for Appendix B, with enlarged fonts matching the appendix figures.
-It imports `make_single_panel_figure` from `Pareto_plotter.py`.
+extrapolation figures for Appendix B, with enlarged fonts matching the appendix
+figures. Its Fig. B2 path calls `make_hmf_pf_extended_figure` from
+`Pareto_plotter.py`, using the diagonal-codelen Table-B1 normalisation and the
+merged extended ranking plus v2 candidate-refit front.
 
 Notes on the plotting scripts:
 
@@ -221,8 +253,9 @@ Notes on the plotting scripts:
   `load_pareto_data`, `load_ps_like_for_hmf` etc. as importable utilities;
   its driver code is gated behind `if __name__ == '__main__':` so importing
   has no side effects.
-- `extrapolation_plotter.py` overlays the best PS-like ESR function (rank
-  14, Eq 10) on both HMF panels of `extrapolation_behaviour.pdf`.
+- `extrapolation_plotter.py` overlays the current best passing PS-like ESR
+  function (rank 17, Eq. 16 in the paper) on both HMF panels of
+  `extrapolation_behaviour.pdf`.
 - `fiducial_checks_and_plots.py` adds that PS-like function to all three
   panels of `HMF_functions_fiducial.pdf` (Fig 5).
 - `function_plotter.py` accepts a `skip_sources` argument so the Fig 1
@@ -248,10 +281,19 @@ Produced by the fitting scripts and consumed by plotting/analysis scripts:
 | `hmf_data/hmf_<sim>_data/final_all_fiducial.txt` | `run_fiducial_hmf.py` | Per-sim fits (restricted range) |
 | `hmf_combined_DL_fiducial.txt` | `compute_combined_DL.py` | Combined DL ranking (fiducial) |
 | `hmf_combined_DL.txt` | `compute_combined_DL.py --extended` | Combined DL ranking (full range) |
+| `hmf_combined_DL_diagonal.txt` | `build_hmf_table.py` / extended codelen recompute workflow | Extended HMF ranking on the paper's diagonal-Fisher codelen convention |
+| `pf_candidates.txt` | `select_pf_candidates_v2.py` | Current v2 HMF candidate pool (1000 functions, no `MIN_SIMS` gate) |
+| `pf_refit_combined.txt` | `refit_pf.py` | Fiducial 100-realisation v2 refit; source of Table 3 and the HMF panel of Fig. 2 |
+| `pf_refit_persim.txt` | `refit_pf.py` | Per-realisation fit parameters for the fiducial v2 refit |
+| `pf_refit_sim50.txt` | `refit_pf.py` | Sim-50 slice used by HMF plotting and PS-like classification |
+| `pf_refit_combined_extended.txt` | `refit_pf_extended.py` | Extended-range refit of the v2 candidate pool; used in Fig. B2 |
+| `pf_refit_persim_extended.txt` | `refit_pf_extended.py` | Per-realisation extended-fit parameters; used by Fig. B2 PS-like classification |
 | `literature_fits_fiducial.txt` | `fit_literature_all_sims.py` | Per-sim literature fits (fiducial) |
 | `literature_combined_DL_fiducial.txt` | `fit_literature_all_sims.py` | Combined literature DL (fiducial) |
+| `literature_st_jenkins_combined.txt` | `fit_lit_st_jenkins.py` | Fiducial Sheth-Tormen/Jenkins combined DL values |
 | `literature_fits_all_sims.txt` | `fit_literature_all_sims.py --extended` | Per-sim literature fits (full range) |
 | `literature_combined_DL.txt` | `fit_literature_all_sims.py --extended` | Combined literature DL (full range) |
+| `literature_st_jenkins_extended.txt` | `fit_lit_st_jenkins_extended.py` | Extended Sheth-Tormen/Jenkins combined DL values |
 | `ordered_gold.txt` | `sample_top_200.py step3` | Rank tally (full range) |
 | `ordered_gold_fiducial.txt` | `fiducial_checks_and_plots.py` | Rank tally (restricted range) |
 | `all_paper_fitting_data.txt` | `fit_all.py` (paper mode) | Literature fits per dataset |
@@ -269,6 +311,9 @@ python3 build_final_functions.py hmf_50 \
 ```
 
 ² Consumed by `Pareto_plotter.py` and `generate_extended_appendix.py`.
+
+These large generated text files are produced artifacts, not raw inputs; they
+are regenerated by the workflow above before making the paper plots/tables.
 
 `*_final_functions.txt` is semicolon-delimited:
 `source;complexity;DL;NLL;plot_fcn;blank_fcn` (see *Key file format* below).
@@ -300,7 +345,7 @@ A typical end-to-end workflow:
    python3 fit_all.py LF_Ser_L paper
    python3 fit_literature_all_sims.py          # HMF literature fits
 
-4. HMF pipeline (identify top functions, refit all sims)
+4. Legacy full-range HMF pipeline (identify top functions, refit all sims)
    python3 sample_top_200.py step1
    mpirun -np 100 python3 sample_top_200.py step2
    python3 compute_combined_DL.py
@@ -312,16 +357,28 @@ A typical end-to-end workflow:
    python3 build_final_functions.py SMF_cmodel_M
    python3 build_final_functions.py hmf_50 --combined hmf_combined_DL.txt
 
-6. Fiducial (fiducial) HMF pipeline — main text (§4 of the paper)
-   (Cluster: run_hmf_fiducial_step{1,2}.py, run_fiducial_hmf*.py)
-   python3 compute_combined_DL.py
+6. Fiducial HMF pipeline — main text (§4 of the paper)
+   # Current v2 paper path. The old mean-rank/MIN_SIMS path is retained only
+   # for provenance; the paper results use the no-MIN_SIMS selection below.
+   # Stage 1: nominate candidates at complexities 6--10 and donor-fill/refit
+   # them on the ten selection realisations.
+   python3 select_pf_candidates_v2.py          # -> pf_candidates.txt
+
+   # Stage 2: thorough multistart refit of the 1000-function v2 pool on all
+   # 100 fiducial Quijote realisations.
+   python3 refit_pf.py                         # -> pf_refit_combined.txt,
+                                                #    pf_refit_persim.txt,
+                                                #    pf_refit_sim50.txt
+
+   # Stage 3: literature fits and paper-facing tables/figures.
    python3 fit_literature_all_sims.py
+   python3 fit_lit_st_jenkins.py
    python3 build_final_functions.py hmf_50 --combined hmf_combined_DL_fiducial.txt \
        --esr-dir hmf_fiducial_50_data --outfile hmf_50_final_functions_fiducial.txt
    python3 build_searchcomp.py                 # -> hmf_fiducial_searchcomp.txt
-   python3 build_fiducial_table.py
+   python3 build_hmf_table.py                   # current Table 3 reconstruction
    python3 fiducial_checks_and_plots.py         # Figs 5, 6 + physicality checks
-   python3 find_PS_like_functions.py           # "26 PS-like in top 200"
+   python3 find_PS_like_functions.py           # PS-like asymptotic audit
 
 7. Other analysis and plots
    python3 physicality_checks.py
@@ -343,7 +400,9 @@ A typical end-to-end workflow:
 7b. Full-range (extended) HMF — Appendix B of the paper
    python3 compute_combined_DL.py --extended
    python3 fit_literature_all_sims.py --extended
+   python3 fit_lit_st_jenkins_extended.py
    python3 build_searchcomp.py --extended      # -> hmf_func_gencomp.txt
+   python3 refit_pf_extended.py                # -> pf_refit_combined_extended.txt
    python3 generate_extended_appendix.py       # Appendix B figures
    python3 find_PS_like_functions.py --extended
 

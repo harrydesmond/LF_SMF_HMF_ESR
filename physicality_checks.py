@@ -313,7 +313,7 @@ def analyse_dataset(filename, dataset_name, x_range, density_type=None):
 
 if __name__ == '__main__':
     # HMF: x = sigma (mass variance), typical range ~0.2 to ~2
-    analyse_dataset('hmf_50_final_functions.txt',
+    analyse_dataset('hmf_50_final_functions_extended.txt',
                     'HMF (sim 50) — x = σ (mass variance)',
                     x_range=(0.2, 2.0), density_type='HMF')
 

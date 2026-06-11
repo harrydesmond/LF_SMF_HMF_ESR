@@ -23,11 +23,11 @@ gamma = Gamma  # alias so eval() of Bernardi functions works
 
 def load_lf_smf(data_set):
     """Return x (in 10^9 solar units), log10(phi), y_err, and log10(M_raw)."""
-    data_file = 'data/{}.txt'.format(data_set)
+    data_file = '{}.txt'.format(data_set)
     if not os.path.isfile(data_file):
         for suffix in ('_L', '_M'):
             if data_set.endswith(suffix):
-                alt = 'data/{}.txt'.format(data_set[:-2])
+                alt = '{}.txt'.format(data_set[:-2])
                 if os.path.isfile(alt):
                     data_file = alt
                 break
@@ -42,14 +42,21 @@ def load_lf_smf(data_set):
     return x, y, y_err, logM
 
 
-def load_hmf(data_set):
-    """Return x (=sigma), y (=log10 number density), y_err, and logM for HMF."""
+def load_hmf(data_set, variant='extended'):
+    """Return x (=sigma), y (=log10 number density), y_err, and logM for HMF.
+
+    fiducial = 16 bins (drops the 2 lowest-mass bins); extended = full 18 bins.
+    """
+    if variant == 'fiducial':
+        counts_file, skip = 'hmf_50_trimmed_new.txt', 2
+    else:
+        counts_file, skip = '{}_new.txt'.format(data_set), 0
     _, counts, y_err_raw, Veff_factor_delta, _ = np.loadtxt(
-        'data/hmf_files/{}.dat'.format(data_set), dtype=float, unpack=True)
+        counts_file, dtype=float, unpack=True)
     logM, sigma, factor = np.loadtxt(
-        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+        'mass_variance_multiplier.txt', dtype=float, unpack=True)
     n = len(counts)
-    logM, sigma = logM[:n], sigma[:n]
+    logM, sigma = logM[skip:skip + n], sigma[skip:skip + n]
     x = sigma                                  # ESR variable
     Veff = 1e9 / 0.6711**3
     delta_logm = 0.2
@@ -58,10 +65,18 @@ def load_hmf(data_set):
     return x, y, y_err, logM
 
 
-def load_functions(data_set):
+def _ff_path(data_set, variant='extended'):
+    # HMF ranking: fiducial (16-bin, main text) or extended (18-bin, App B).
+    if data_set == 'hmf_50':
+        return ('hmf_50_final_functions_fiducial.txt' if variant == 'fiducial'
+                else 'hmf_50_final_functions_extended.txt')
+    return '{}_final_functions.txt'.format(data_set)
+
+
+def load_functions(data_set, variant='extended'):
     """Load the *_final_functions.txt file and return per-function dicts."""
     source, comp, DL, NLL, plot_fcn, blank_fcn = np.loadtxt(
-        '{}_final_functions.txt'.format(data_set),
+        _ff_path(data_set, variant),
         dtype=str, delimiter=';', unpack=True)
     DL = DL.astype(float)
     NLL = NLL.astype(float)
@@ -99,14 +114,17 @@ BER_COLOUR   = '#8c564b'   # brown
 DATA_COLOUR  = 'black'
 
 LIT_COLOURS  = {'Sch.': SCH_COLOUR, 'Ber.': BER_COLOUR,
-                'P.Sch.': '#17becf', 'War.': '#bcbd22', 'Tin.': '#e377c2',
-                'Ber.orig': '#e377c2', 'DblSch.': '#7f7f7f'}
+                'P.Sch.': '#17becf', 'War.': '#DAA520', 'Tin.': '#e377c2',
+                'Ber.orig': '#e377c2', 'DblSch.': '#7f7f7f',
+                'Sau.': '#9400D3', 'Jen.': '#006400', 'S-T.': '#A0522D'}
 LIT_STYLES   = {'Sch.': '--', 'Ber.': (0, (2, 2)),
                 'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2)),
-                'Ber.orig': '-.', 'DblSch.': (0, (5, 5))}
+                'Ber.orig': '-.', 'DblSch.': (0, (5, 5)),
+                'Sau.': (0, (3, 1, 1, 1)), 'Jen.': (0, (3, 1, 1, 1)), 'S-T.': (0, (4, 1))}
 LIT_LABELS   = {'Sch.': 'Schechter', 'Ber.': 'Bernardi',
                 'P.Sch.': 'Press-Schechter', 'War.': 'Warren', 'Tin.': 'Tinker',
-                'Ber.orig': 'Bernardi (orig.)', 'DblSch.': 'Dbl. Schechter'}
+                'Ber.orig': 'Bernardi (orig.)', 'DblSch.': 'Dbl. Schechter',
+                'Sau.': 'Saunders', 'Jen.': 'Jenkins', 'S-T.': 'Sheth-Tormen'}
 
 ESR_STYLES   = ['-', '-', '-', '-']
 
@@ -115,7 +133,7 @@ ESR_STYLES   = ['-', '-', '-', '-']
 
 def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
                        is_hmf=False, inset_xlim=(7, 9), lit_keys=None,
-                       plot_xlim=None):
+                       plot_xlim=None, variant='extended'):
     """
     Plot the top 4 ESR functions + literature fits on *ax*,
     with data points and an extended x range.
@@ -133,16 +151,16 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
     lit_keys : list of str  prefixes of literature sources to plot
     """
     if lit_keys is None:
-        lit_keys = ['Sch.', 'Ber.orig', 'DblSch.', 'Ber.']
+        lit_keys = ['Sch.', 'Ber.orig', 'DblSch.', 'Ber.', 'Sau.']
 
     # Load data
     if is_hmf:
-        x_data, y_data, y_err, logM_data = load_hmf(data_set)
+        x_data, y_data, y_err, logM_data = load_hmf(data_set, variant)
         # For HMF, sigma *decreases* with mass → need interpolation for
         # a smooth logM evaluation grid.
         from scipy.interpolate import interp1d
         logM_all, sigma_all, factor_all = np.loadtxt(
-            'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+            'mass_variance_multiplier.txt', dtype=float, unpack=True)
         # Data file logM is in M_sun; convert to h^{-1}M_sun for display
         h_offset = np.log10(0.6711)  # -0.1732
         sigma_of_logM = interp1d(logM_all, sigma_all, kind='cubic',
@@ -161,7 +179,7 @@ def plot_extrapolation(data_set, ax, title, xlabel, x_extrap_range,
         logM_eval = np.log10(x_eval * 1e9)
         factor_eval = 1.0  # no factor needed for LF/SMF
 
-    source, comp, DL, NLL, plot_fcn, blank_fcn = load_functions(data_set)
+    source, comp, DL, NLL, plot_fcn, blank_fcn = load_functions(data_set, variant)
 
     # --- identify the 4 best ESR by DL (most negative = best) ---
     # Prefer ESR_T (top-ranked overall), then ESR_C (combined-ranked); fall back to ESR
@@ -264,7 +282,7 @@ if __name__ == '__main__':
         title='LF: Sérsic',
         xlabel=r'$\log(L\,/\,L_\odot)$',
         x_extrap_range=(1e-4, 1e8),
-        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
+        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.', 'Sau.'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
@@ -279,7 +297,7 @@ if __name__ == '__main__':
         title='LF: cmodel',
         xlabel=r'$\log(L\,/\,L_\odot)$',
         x_extrap_range=(1e-4, 1e8),
-        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
+        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.', 'Sau.'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
@@ -292,7 +310,7 @@ if __name__ == '__main__':
         title='SMF: Sérsic',
         xlabel=r'$\log(M_\star\,/\,M_\odot)$',
         x_extrap_range=(1e-4, 1e9),
-        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
+        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.', 'Sau.'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
@@ -307,7 +325,7 @@ if __name__ == '__main__':
         title='SMF: cmodel',
         xlabel=r'$\log(M_\star\,/\,M_\odot)$',
         x_extrap_range=(1e-4, 1e9),
-        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.'],
+        lit_keys=['Sch.', 'Ber.orig', 'DblSch.', 'Ber.', 'Sau.'],
         plot_xlim=(5, 16),
         inset_xlim=(5, 9),
     )
@@ -323,13 +341,14 @@ if __name__ == '__main__':
         x_extrap_range=(8, 20),
         is_hmf=True,
         inset_xlim=(7.8, 12.3),
-        lit_keys=['P.Sch.', 'War.', 'Tin.', 'Ber.'],
+        lit_keys=['P.Sch.', 'War.', 'Tin.', 'Ber.', 'S-T.', 'Jen.'],
         plot_xlim=(7.8, 16.8),
+        variant='fiducial',  # main text = fiducial mass bins
     )
     axes[2, 0].set_ylabel(r'$\log\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$', fontsize=12)
 
     # HMF vs sigma
-    plot_hmf_sigma(axes[2, 1])
+    plot_hmf_sigma(axes[2, 1], variant='fiducial')
     axes[2, 1].set_xlabel(r'$\sigma$', fontsize=12)
     axes[2, 1].set_ylabel(r'$\log\!\left(f(\sigma)\right)$', fontsize=12)
     axes[2, 1].yaxis.set_label_position('right')
@@ -338,13 +357,14 @@ if __name__ == '__main__':
     axes[2, 1].text(0.05, 0.95, r'HMF ($\sigma$)', transform=axes[2, 1].transAxes,
                     fontsize=13, va='top', ha='left', fontweight='bold')
 
-    # ── Overlay best PS-like function (rank 14) on HMF panels ──
-    # f(σ) = |θ₀|^{θ₁ - |θ₂|^{ln σ}} / σ  (sim 50 params)
-    _ps_func = 'np.power(np.abs(3.34541494),(-0.10935841 - np.power(np.abs(-0.17751593),np.log(x))))/x'
+    # ── Overlay best PS-like function (rank 17) on HMF panels ──
+    # CLAUDEADD 2026-06-10: f(σ) = e^{θ₀/σ²}/(θ₁ + σ)  (sim 50 params); v2 rank-17, the
+    # lowest-DL passing PS-like -- a cleaner representation of the old rank-13 showcase family.
+    _ps_func = 'np.exp(-0.83382114532/x**2)/(0.65453543149 + x)'
     # Left panel: phi vs logM
     from scipy.interpolate import interp1d as _interp1d
     _logM_all, _sigma_all, _factor_all = np.loadtxt(
-        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+        'mass_variance_multiplier.txt', dtype=float, unpack=True)
     _h_offset = np.log10(0.6711)
     _sigma_of_logM = _interp1d(_logM_all, _sigma_all, kind='cubic', fill_value='extrapolate')
     _factor_of_logM = _interp1d(_logM_all, _factor_all, kind='cubic', fill_value='extrapolate')
@@ -368,7 +388,7 @@ if __name__ == '__main__':
     # Local legend in both HMF panels
     from matplotlib.lines import Line2D as _L2D
     _ps_handle = [_L2D([], [], color='darkcyan', ls='-', lw=1.4)]
-    _ps_label = [r'PS-like']
+    _ps_label = [r'PS-like (Eq. 16)']
     axes[2, 0].legend(handles=_ps_handle, labels=_ps_label,
                        loc='upper right', fontsize=9, framealpha=0.8)
     axes[2, 1].legend(handles=_ps_handle, labels=_ps_label,
@@ -383,6 +403,11 @@ if __name__ == '__main__':
             if l not in all_labels:
                 all_handles.append(h)
                 all_labels.append(l)
+    # Put the 'Data' entry at the end of the legend
+    if 'Data' in all_labels:
+        _di = all_labels.index('Data')
+        all_labels.append(all_labels.pop(_di))
+        all_handles.append(all_handles.pop(_di))
     ncol = (len(all_labels) + 1) // 2
     fig.legend(all_handles, all_labels, loc='upper center',
                ncol=ncol, fontsize=11, frameon=True,
@@ -390,7 +415,7 @@ if __name__ == '__main__':
 
     plt.savefig('Final_Plots/extrapolation_behaviour.pdf',
                 dpi=200, bbox_inches='tight')
-    plt.savefig('Final_Plots/extrapolation_behaviour.png',
+    plt.savefig('Plots/extrapolation_behaviour.png',
                 dpi=200, bbox_inches='tight')
     plt.show()
     print("Saved to Final_Plots/extrapolation_behaviour.pdf")

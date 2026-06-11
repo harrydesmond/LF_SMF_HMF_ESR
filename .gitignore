@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 *.pyo
+.ipynb_checkpoints/
+texput.log
 
 # Generated plot directories (created on demand by setup_paths.py)
 Plots/

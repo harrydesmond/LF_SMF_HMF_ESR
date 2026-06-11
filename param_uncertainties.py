@@ -2,28 +2,12 @@
 """
 param_uncertainties.py
 
-Computes parameter uncertainties for the best-fit ESR and literature
-functions quoted in Tables 1–3 of the paper.
-
 Part A: Compute Fisher-matrix (Cramér-Rao) parameter uncertainties for
         representative HMF, LF and SMF functions using numdifftools.Hessian.
         sigma_i = 1/sqrt(H_ii) where H is the Hessian of the NLL.
 
 Part B: Compare cross-simulation spread (16th–84th percentile) for HMF
         functions against the single-sim Fisher uncertainty.
-
-Inputs:
-  - data/hmf_files/hmf_50.dat
-  - data/LF_Ser_L.txt, data/SMF_Ser_M.txt
-  - LF_Ser_L_final_functions.txt, SMF_Ser_M_final_functions.txt
-  - hmf_data/hmf_<sim>_data/final_all.txt  (100 sims)
-  - literature_fits_all_sims.txt           (Warren/Tinker per-sim fits)
-
-Outputs:
-  - param_uncertainties_results.txt
-
-Dependencies:
-  numpy, numdifftools
 """
 
 import numpy as np
@@ -31,7 +15,7 @@ import re
 import os
 import numdifftools as nd
 
-BASE = '.'  # run from repo root
+BASE = os.path.dirname(os.path.abspath(__file__))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DATA LOADERS
@@ -149,7 +133,7 @@ results.append('PART A: Fisher-based parameter uncertainties (Cramér-Rao bound)
 results.append('=' * 80)
 
 # ── HMF sim 50 data ───────────────────────────────────────────────────────────
-hmf50_path = os.path.join(BASE, 'data', 'hmf_files', 'hmf_50.dat')
+hmf50_path = os.path.join(BASE, 'hmf_files', 'hmf_50_new.dat')
 sigma50, N50, norm50 = load_hmf_data(hmf50_path)
 
 # ── A1: HMF ESR best function ─────────────────────────────────────────────────
@@ -205,11 +189,11 @@ tin_names = ['a0', 'a1', 'a2', 'a3']
 for pn, pv, sig in zip(tin_names, params_tin, sigmas_tin):
     results.append(f'    {pn} = {pv:+.8f}  ±  {abs(sig):.2e}')
 
-# ── A4: LF Sérsic best ESR and Schechter ─────────────────────────────────────
-print('Computing A4: LF Sérsic...')
-x_lf, counts_lf, Veff_lf = load_lf_smf_data(os.path.join(BASE, 'data', 'LF_Ser_L.txt'))
+# ── A4: LF Sersic best ESR and Schechter ─────────────────────────────────────
+print('Computing A4: LF Sersic...')
+x_lf, counts_lf, Veff_lf = load_lf_smf_data(os.path.join(BASE, 'LF_Ser_L.txt'))
 
-results.append('\nA4: LF Sérsic')
+results.append('\nA4: LF Sersic')
 
 # Parse best ESR from LF_Ser_L_final_functions.txt
 lf_funcs = np.loadtxt(os.path.join(BASE, 'LF_Ser_L_final_functions.txt'),
@@ -258,7 +242,7 @@ def extract_params_from_fitted(fitted_fcn, template, param_names):
             first_group_idx[p] = i
     return [float(groups[first_group_idx[p]]) for p in param_names]
 
-# For LF Sérsic ESR best
+# For LF Sersic ESR best
 lf_esr_params = extract_params_from_fitted(lf_esr_fcn, lf_esr_template, lf_esr_param_names)
 if lf_esr_params is None:
     # Fallback: extract all floats in order
@@ -279,7 +263,7 @@ results.append('    Parameters and Fisher uncertainties:')
 for pn, pv, sig in zip(lf_esr_param_names, lf_esr_params, sigmas_lf_esr):
     results.append(f'      {pn} = {pv:+.6e}  ±  {abs(sig):.2e}')
 
-# LF Sérsic Schechter
+# LF Sersic Schechter
 sch_mask_lf = np.array([s == 'Sch.' for s in lf_source])
 sch_idx_lf  = np.where(sch_mask_lf)[0][0]
 lf_sch_template = lf_blank[sch_idx_lf]
@@ -302,11 +286,11 @@ results.append('    Parameters and Fisher uncertainties:')
 for pn, pv, sig in zip(lf_sch_param_names, lf_sch_params, sigmas_lf_sch):
     results.append(f'      {pn} = {pv:+.6e}  ±  {abs(sig):.2e}')
 
-# ── A5: SMF Sérsic best ESR and Schechter ────────────────────────────────────
-print('Computing A5: SMF Sérsic...')
-x_smf, counts_smf, Veff_smf = load_lf_smf_data(os.path.join(BASE, 'data', 'SMF_Ser_M.txt'))
+# ── A5: SMF Sersic best ESR and Schechter ────────────────────────────────────
+print('Computing A5: SMF Sersic...')
+x_smf, counts_smf, Veff_smf = load_lf_smf_data(os.path.join(BASE, 'SMF_Ser_M.txt'))
 
-results.append('\nA5: SMF Sérsic')
+results.append('\nA5: SMF Sersic')
 
 smf_funcs = np.loadtxt(os.path.join(BASE, 'SMF_Ser_M_final_functions.txt'),
                         dtype=str, delimiter=';', unpack=True)

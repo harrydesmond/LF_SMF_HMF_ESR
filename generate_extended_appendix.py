@@ -1,5 +1,5 @@
 """
-Generate two appendix figures (Pareto and extrapolation) for the EXTENDED
+Generate two appendix figures (Pareto and extrapolation) for the UNTRIMMED
 (full-range) HMF data, with enlarged fonts matching Figure A1
 (HMF_functions_extended.pdf): axis labels 16, ticks 14, legend 14, annotations 14.
 
@@ -7,7 +7,7 @@ Outputs:
   Final_Plots/Pareto_HMF_extended.pdf (+ Plots/...png)
   Final_Plots/extrapolation_HMF_extended.pdf (+ Plots/...png)
 
-Based on Parts 2 and 4 of fiducial_checks_and_plots.py, adapted for extended data.
+Based on Parts 2 and 4 of trimmed_checks_and_plots.py, adapted for untrimmed data.
 """
 
 import os
@@ -30,9 +30,12 @@ FS_ANNOT = 14
 
 # ── Colour scheme ───────────────────────────────────────────────────────────
 ESR_COLOURS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
-LIT_COLOURS = {'P.Sch.': '#17becf', 'War.': '#bcbd22', 'Tin.': '#e377c2'}
-LIT_STYLES = {'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2))}
-LIT_LABELS = {'P.Sch.': 'Press-Schechter', 'War.': 'Warren', 'Tin.': 'Tinker'}
+LIT_COLOURS = {'P.Sch.': '#17becf', 'War.': '#DAA520', 'Tin.': '#e377c2',
+               'S-T.': '#A0522D', 'Jen.': '#006400'}
+LIT_STYLES = {'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2)),
+              'S-T.': (0, (4, 1)), 'Jen.': (0, (3, 1, 1, 1))}
+LIT_LABELS = {'P.Sch.': 'Press-Schechter', 'War.': 'Warren', 'Tin.': 'Tinker',
+              'S-T.': 'Sheth-Tormen', 'Jen.': 'Jenkins'}
 
 
 # ── Evaluation helpers ──────────────────────────────────────────────────────
@@ -53,9 +56,9 @@ def make_func(template):
     return f, param_names
 
 
-# ── Mass-variance relation (EXTENDED) ──────────────────────────────────────
+# ── Mass-variance relation (UNTRIMMED) ──────────────────────────────────────
 logM_mvm, sigma_mvm, factor_mvm = np.loadtxt(
-    'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+    'mass_variance_multiplier.txt.bak_untrimmed', dtype=float, unpack=True)
 factor_of_sigma = interp1d(sigma_mvm, factor_mvm, kind='cubic', fill_value='extrapolate')
 logM_of_sigma = interp1d(sigma_mvm, logM_mvm, kind='cubic', fill_value='extrapolate')
 sigma_of_logM_mvm = interp1d(logM_mvm, sigma_mvm, kind='cubic', fill_value='extrapolate')
@@ -65,8 +68,8 @@ Veff = 1e9 / 0.6711**3
 delta_logm = 0.2
 
 
-def load_hmf_data_extended(sim_id):
-    data = np.loadtxt(f'data/hmf_files/hmf_{sim_id}.dat')
+def load_hmf_data_untrimmed(sim_id):
+    data = np.loadtxt(f'hmf_files/hmf_{sim_id}_new.dat')
     n_full = len(data)
     factor = factor_mvm[:n_full]
     logM_bin = logM_mvm[:n_full]
@@ -78,7 +81,7 @@ def load_hmf_data_extended(sim_id):
     return sigma, counts, logM, y, y_err, factor
 
 
-def load_sim50_results_extended():
+def load_sim50_results_untrimmed():
     results = []
     with open('hmf_data/hmf_50_data/final_all.txt') as fh:
         for line in fh:
@@ -94,7 +97,7 @@ def load_sim50_results_extended():
     return results
 
 
-# ── Literature fits on extended data (sim 50) ──────────────────────────────
+# ── Literature fits on untrimmed data (sim 50) ──────────────────────────────
 def press_schechter(x):
     delta_c = 1.686
     return np.sqrt(2.0 / np.pi) * (delta_c / x) * np.exp(-0.5 * (delta_c / x)**2)
@@ -108,6 +111,19 @@ def warren_func(x, params):
 def tinker_func(x, params):
     a0, a1, a2, a3 = params
     return a0 * (np.power(x / a2, -a1) + 1.0) * np.exp(-a3 * np.power(x, -2.0))
+
+
+def sheth_tormen_func(x, params):
+    a0, a1, a2 = params
+    delta_c = 1.686
+    nu = delta_c / x
+    return (a0 * np.sqrt(2.0 * a1 / np.pi) * nu *
+            (1.0 + np.power(a1 * nu**2, -a2)) * np.exp(-0.5 * a1 * nu**2))
+
+
+def jenkins_func(x, params):
+    a0, a1, a2 = params
+    return a0 * np.exp(-np.power(np.abs(np.log(1.0 / x) + a1), a2))
 
 
 lit_params = {}
@@ -124,6 +140,11 @@ with open('literature_fits_all_sims.txt') as fh:
             if parts[5] != 'none':
                 lit_params[name] = np.array([float(v) for v in parts[5].split()])
 
+# Sheth-Tormen and Jenkins best-fit params on the extended sim-50 HMF,
+# from fit_extended_st_jenkins.py (DL/NLL added to hmf_50_final_functions_extended.txt)
+lit_params['S-T.'] = np.array([0.32870274, 0.66608317, 0.18383091])
+lit_params['Jen.'] = np.array([0.31775231, 0.48633814, 2.17852724])
+
 
 def eval_lit(name, sigma):
     if name == 'P.Sch.':
@@ -132,10 +153,14 @@ def eval_lit(name, sigma):
         return warren_func(sigma, lit_params['War.'])
     elif name == 'Tin.' and 'Tin.' in lit_params:
         return tinker_func(sigma, lit_params['Tin.'])
+    elif name == 'S-T.' and 'S-T.' in lit_params:
+        return sheth_tormen_func(sigma, lit_params['S-T.'])
+    elif name == 'Jen.' and 'Jen.' in lit_params:
+        return jenkins_func(sigma, lit_params['Jen.'])
     return None
 
 
-# ── ESR combined-DL ranking (extended) ─────────────────────────────────────
+# ── ESR combined-DL ranking (untrimmed) ─────────────────────────────────────
 esr_results = []
 with open('hmf_combined_DL.txt') as fh:
     for line in fh:
@@ -149,7 +174,7 @@ with open('hmf_combined_DL.txt') as fh:
             'sum_NLL': float(parts[4]),
         })
 
-# Generation-complexity mapping (extended)
+# Generation-complexity mapping (untrimmed)
 searchcomp_map = {}
 with open('hmf_func_gencomp.txt') as fh:
     for line in fh:
@@ -159,10 +184,10 @@ with open('hmf_func_gencomp.txt') as fh:
         if len(parts) >= 2 and parts[1] != '-1':
             searchcomp_map[parts[0]] = int(parts[1])
 
-sim50_extended = load_sim50_results_extended()
-sim50_dict = {t: p for (t, _, _, p) in sim50_extended}
-sim50_dl_dict = {t: dl for (t, dl, _, _) in sim50_extended}
-sim50_nll_dict = {t: nll for (t, _, nll, _) in sim50_extended}
+sim50_untrimmed = load_sim50_results_untrimmed()
+sim50_dict = {t: p for (t, _, _, p) in sim50_untrimmed}
+sim50_dl_dict = {t: dl for (t, dl, _, _) in sim50_untrimmed}
+sim50_nll_dict = {t: nll for (t, _, nll, _) in sim50_untrimmed}
 
 
 # ── PS-like detection ───────────────────────────────────────────────────────
@@ -192,37 +217,35 @@ def check_ps_like(func_str, params, sigma_vals=(100, 1000, 10000)):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Part A: Pareto front (extended) — delegate to Pareto_plotter
+# Part A: Pareto front (extended range) — delegate to Pareto_plotter
 # ══════════════════════════════════════════════════════════════════════════════
-print("=== Plot: Pareto HMF extended ===")
+print("=== Plot: Pareto HMF extended (combined-PF, Fig B2) ===")
 
-from Pareto_plotter import make_single_panel_figure, load_ps_like_for_hmf
-
-hmf_ps_data = load_ps_like_for_hmf(sim=50)
-n_ps = sum(1 for e in hmf_ps_data if e['ps_like'])
-print(f"  Found {n_ps} PS-like functions")
+# Fig B2 is the extended analogue of the combined-PF Fig 2 HMF panel: the merged
+# ESR Pareto front from the fiducial PF candidates re-fit on extended data
+# (v2 job 744570) + the retained true-extended ranking, normalised to the true
+# extended best (consistent with Table B1). See draw_hmf_pf_panel_extended().
+from Pareto_plotter import make_hmf_pf_extended_figure
 
 os.makedirs('Plots/Old', exist_ok=True)
 os.makedirs('Final_Plots', exist_ok=True)
-make_single_panel_figure(
-    'hmf_50',
+make_hmf_pf_extended_figure(
     'Final_Plots/Pareto_HMF_extended.pdf',
-    ps_like_data=hmf_ps_data,
     label_fontsize=FS_LABEL,
     tick_fontsize=FS_TICK,
-    legend_fontsize=FS_LEG,
-    figsize=(6.8, 4.8),
+    legend_fontsize=12,
+    figsize=(6.8, 5.0),
     ylabel_x_offset=0.10,
 )
 print("Saved Pareto_HMF_extended")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Part B: Extrapolation — two panels (extended)
+# Part B: Extrapolation — two panels (untrimmed)
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n=== Plot: Extrapolation HMF extended (2 panels) ===")
+print("\n=== Plot: Extrapolation HMF untrimmed (2 panels) ===")
 
-sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data_extended(50)
+sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data_untrimmed(50)
 top4_funcs = [(r['function'], f"ESR {i+1}") for i, r in enumerate(esr_results[:4])]
 
 h_offset = np.log10(0.6711)
@@ -257,7 +280,7 @@ for idx, (func, label) in enumerate(top4_funcs):
     ax_logM.plot(logM_eval_display, logy, color=ESR_COLOURS[idx],
                  lw=1.5, label=label, zorder=5)
 
-for name in ['P.Sch.', 'War.', 'Tin.']:
+for name in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
     f_lit = eval_lit(name, sigma_eval_logM)
     if f_lit is None:
         continue
@@ -290,7 +313,7 @@ for idx, (func, label) in enumerate(top4_funcs):
     logy = np.where(phi > 0, np.log10(phi), -300.0)
     inset_logM.plot(logM_eval_display[mask_e], logy[mask_e],
                     color=ESR_COLOURS[idx], lw=1.3, zorder=5)
-for name in ['P.Sch.', 'War.', 'Tin.']:
+for name in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
     f_lit = eval_lit(name, sigma_eval_logM)
     if f_lit is None:
         continue
@@ -322,7 +345,7 @@ for idx, (func, label) in enumerate(top4_funcs):
     ax_sigma.plot(sigma_eval_fine, logy, color=ESR_COLOURS[idx],
                   lw=1.5, label=label, zorder=5)
 
-for name in ['P.Sch.', 'War.', 'Tin.']:
+for name in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
     f_lit = eval_lit(name, sigma_eval_fine)
     if f_lit is None:
         continue
@@ -345,8 +368,8 @@ for ax in [ax_logM, ax_sigma]:
         if l not in labels:
             handles.append(h)
             labels.append(l)
-fig.legend(handles, labels, loc='upper center', ncol=len(labels),
-           fontsize=FS_LEG, frameon=True, bbox_to_anchor=(0.5, 1.10))
+fig.legend(handles, labels, loc='upper center', ncol=(len(labels) + 1) // 2,
+           fontsize=FS_LEG, frameon=True, bbox_to_anchor=(0.5, 1.14))
 
 fig.tight_layout(w_pad=0)
 
@@ -358,11 +381,11 @@ print("Saved extrapolation_HMF_extended")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Part C: Function fits (HMF_functions_extended.pdf, Fig A1)
-# Mirrors fiducial_checks_and_plots.py Part 3 but for the extended data.
+# Mirrors trimmed_checks_and_plots.py Part 3 but for the untrimmed data.
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n=== Plot: HMF functions extended (Fig A1) ===")
+print("\n=== Plot: HMF functions untrimmed (Fig A1) ===")
 
-best_func, _, _, best_params = sim50_extended[0]  # rank 1 by DL
+best_func, _, _, best_params = sim50_untrimmed[0]  # rank 1 by DL
 f1_call, _ = make_func(best_func)
 f1_vals = f1_call(best_params, sigma_50)
 phi1 = f1_vals * factor_50
@@ -381,7 +404,7 @@ ax_data.plot(logM_50, y_plot_best, color=ESR_COLOURS[0], lw=1.4,
 ax_res.plot(logM_50, (y_plot_best - y_50) / y_err_50,
             color=ESR_COLOURS[0], lw=0.8)
 
-for name in ['P.Sch.', 'War.', 'Tin.']:
+for name in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
     f_lit = eval_lit(name, sigma_50)
     if f_lit is None:
         continue
@@ -407,7 +430,7 @@ plt.setp(ax_data.get_xticklabels(), visible=False)
 plt.setp(ax_res.get_xticklabels(), visible=False)
 for ax in [ax_data, ax_res, ax_nll]:
     ax.tick_params(labelsize=14)
-ax_data.legend(fontsize=10)
+ax_data.legend(fontsize=10, loc='lower left')
 fig.tight_layout()
 fig.subplots_adjust(hspace=0)
 

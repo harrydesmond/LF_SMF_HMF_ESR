@@ -17,14 +17,14 @@ cm = plt.get_cmap('Set1')
 def load_data(data_set):
     """Load data and function info for a given dataset."""
     source, comp, DL, NLL, plot_fcn, blank_fcn = np.loadtxt(
-        '{}_final_functions.txt'.format(data_set), dtype=str, delimiter=';', unpack=True)
+        ('hmf_50_final_functions_extended.txt' if data_set=='hmf_50' else '{}_final_functions.txt'.format(data_set)), dtype=str, delimiter=';', unpack=True)
     DL, NLL = DL.astype(float), NLL.astype(float)
 
     if 'hmf' in data_set:
         _, counts, y_err, Veff_factor_delta, _ = np.loadtxt(
-            'data/hmf_files/{}.dat'.format(data_set), dtype=float, delimiter=' ', unpack=True)
+            '{}_new.txt'.format(data_set), dtype=float, delimiter=' ', unpack=True)
         logM, sigma, factor = np.loadtxt(
-            'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+            'mass_variance_multiplier.txt', dtype=float, unpack=True)
         logM = logM[:len(counts)]
         sigma = sigma[:len(counts)]
         factor = factor[:len(counts)]
@@ -35,13 +35,13 @@ def load_data(data_set):
         y = np.log10(counts / (Veff * delta_logm))
         y_err = 1 / (np.log(10) * np.sqrt(counts))
     else:
-        data_file = 'data/{}.txt'.format(data_set)
+        data_file = '{}.txt'.format(data_set)
         if not os.path.isfile(data_file):
             # Some LF/SMF datasets use *_L / *_M names for fit outputs but keep
             # raw binned data in the base file (e.g., LF_cmodel.txt).
             for suffix in ('_L', '_M'):
                 if data_set.endswith(suffix):
-                    alt = 'data/{}.txt'.format(data_set[:-2])
+                    alt = '{}.txt'.format(data_set[:-2])
                     if os.path.isfile(alt):
                         data_file = alt
                     break
@@ -190,6 +190,27 @@ def plot_dataset(data_set, colour, ax_data, ax_res, ax_nll, found, is_hmf=False,
             ax_res.plot(M, (y_plot - y) / y_err, color=colour, linestyle=(0, (1, 1)))
             ax_nll.plot(M, nll_contributions, color=colour, linestyle=(0, (1, 1)))
 
+        elif source[idx] == 'Sau.':
+            y_plot = np.log10(y_fcn * factor)
+            lbl = 'Saunders' if 'Sau.' not in found else None
+            if lbl:
+                found.append('Sau.')
+            ax_data.plot(M, y_plot, color=colour, linestyle=(0, (3, 1, 1, 1)), label=lbl)
+            ax_res.plot(M, (y_plot - y) / y_err, color=colour, linestyle=(0, (3, 1, 1, 1)))
+            ax_nll.plot(M, nll_contributions, color=colour, linestyle=(0, (3, 1, 1, 1)))
+
+        elif source[idx] == 'Jen.':
+            y_plot = np.log10(y_fcn * factor)
+            ax_data.plot(M, y_plot, color='purple', linestyle='--', label='Jenkins')
+            ax_res.plot(M, (y_plot - y) / y_err, color='purple', linestyle='--')
+            ax_nll.plot(M, nll_contributions, color='purple', linestyle='--')
+
+        elif source[idx] == 'S-T.':
+            y_plot = np.log10(y_fcn * factor)
+            ax_data.plot(M, y_plot, color='brown', linestyle='--', label='Sheth-Tormen')
+            ax_res.plot(M, (y_plot - y) / y_err, color='brown', linestyle='--')
+            ax_nll.plot(M, nll_contributions, color='brown', linestyle='--')
+
         else:
             continue
 
@@ -224,7 +245,7 @@ def overlay_best_models(data_set, colour, ax_data, ref_data_set='LF_Ser_L'):
     plotting data file in the expected format.
     """
     source, comp, _, _, plot_fcn, _ = np.loadtxt(
-        '{}_final_functions.txt'.format(data_set), dtype=str, delimiter=';', unpack=True)
+        ('hmf_50_final_functions_extended.txt' if data_set=='hmf_50' else '{}_final_functions.txt'.format(data_set)), dtype=str, delimiter=';', unpack=True)
     ref = load_data(ref_data_set)
     x = ref['x']
     M = ref['M']
@@ -238,7 +259,7 @@ def overlay_best_models(data_set, colour, ax_data, ref_data_set='LF_Ser_L'):
 
     # Prefer ESR_T (top-ranked overall) if present; fall back to best-DL ESR
     DL_arr = np.array([float(d) for d in np.loadtxt(
-        '{}_final_functions.txt'.format(data_set), dtype=str, delimiter=';', unpack=True)[2]])
+        ('hmf_50_final_functions_extended.txt' if data_set=='hmf_50' else '{}_final_functions.txt'.format(data_set)), dtype=str, delimiter=';', unpack=True)[2]])
     esr_t_idx = [i for i, s in enumerate(source) if s == 'ESR_T']
     if esr_t_idx:
         best_esr_idx = esr_t_idx[np.argmin(DL_arr[esr_t_idx])]
@@ -354,12 +375,15 @@ for h, l in zip(handles, labels):
         elif l == 'Dbl. Schechter':
             leg_handles.append(Line2D([], [], color='black', linestyle=(0, (5, 5))))
             leg_labels.append('Dbl. Schechter')
+        elif l == 'Saunders':
+            leg_handles.append(Line2D([], [], color='black', linestyle=(0, (3, 1, 1, 1))))
+            leg_labels.append('Saunders')
 
 # Add dataset colour legend
-leg_handles.append(Line2D([], [], color=cm(0), marker='o', linestyle='-', markersize=5))
-leg_labels.append('Sérsic')
-leg_handles.append(Line2D([], [], color=cm(1), marker='o', linestyle='-', markersize=5))
-leg_labels.append('cmodel')
+leg_handles.append(Line2D([], [], color=cm(0), marker='o', linestyle='None', markersize=5))
+leg_labels.append('Sérsic data')
+leg_handles.append(Line2D([], [], color=cm(1), marker='o', linestyle='None', markersize=5))
+leg_labels.append('cmodel data')
 
 ax_lf_data.legend(leg_handles, leg_labels, loc='lower left', fontsize=9,
                   frameon=True)
@@ -423,11 +447,13 @@ for h, l in zip(handles, labels):
             leg_handles.append(Line2D([], [], color='black', linestyle='-.')); leg_labels.append('Bernardi (orig.)')
         elif l == 'Dbl. Schechter':
             leg_handles.append(Line2D([], [], color='black', linestyle=(0, (5, 5)))); leg_labels.append('Dbl. Schechter')
-leg_handles.append(Line2D([], [], color=cm(0), marker='o', linestyle='-', markersize=5)); leg_labels.append('Sérsic')
-leg_handles.append(Line2D([], [], color=cm(1), marker='o', linestyle='-', markersize=5)); leg_labels.append('cmodel')
+        elif l == 'Saunders':
+            leg_handles.append(Line2D([], [], color='black', linestyle=(0, (3, 1, 1, 1)))); leg_labels.append('Saunders')
+leg_handles.append(Line2D([], [], color=cm(0), marker='o', linestyle='None', markersize=5)); leg_labels.append('Sérsic data')
+leg_handles.append(Line2D([], [], color=cm(1), marker='o', linestyle='None', markersize=5)); leg_labels.append('cmodel data')
 fig.legend(leg_handles, leg_labels, loc='upper center', ncol=4, fontsize=10, bbox_to_anchor=(0.5, 0.995), frameon=True)
 fig.subplots_adjust(top=0.90)
-plt.savefig('Final_Plots/LF_SMF_functions_symmetric.pdf', dpi=200, bbox_inches='tight')
+plt.savefig('Plots/LF_SMF_functions_symmetric.pdf', dpi=200, bbox_inches='tight')
 plt.show()
 plt.clf()
 
@@ -462,7 +488,7 @@ ax_data.legend(handles, labels, fontsize=14)
 fig.tight_layout()
 fig.subplots_adjust(hspace=0)
 
-plt.savefig('Final_Plots/HMF_functions.pdf', dpi=200, bbox_inches='tight')
+plt.savefig('Plots/HMF_functions.pdf', dpi=200, bbox_inches='tight')
 plt.show()
 plt.clf()
 
@@ -490,6 +516,6 @@ handles, labels = ax_data.get_legend_handles_labels()
 ax_data.legend(handles, labels, fontsize=14)
 fig.tight_layout()
 fig.subplots_adjust(hspace=0)
-plt.savefig('Final_Plots/HMF_functions_symmetric.pdf', dpi=200, bbox_inches='tight')
+plt.savefig('Plots/HMF_functions_symmetric.pdf', dpi=200, bbox_inches='tight')
 plt.show()
 plt.clf()

@@ -1,5 +1,5 @@
 import sys
-import setup_paths  # noqa: F401 — ensures Plots/ and Final_Plots/ exist
+import re
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -18,7 +18,11 @@ def _eval_fcn(func_str, x, params):
     s = s.replace('log', 'np.log').replace('Abs', 'np.abs')
     for i, p in enumerate(params):
         s = s.replace(f'a{i}', str(p))
-    s = s.replace('x', 'x_val')
+    # CLAUDEADD 2026-06-10: replace the variable x ONLY as a whole word; the old bare
+    # s.replace('x','x_val') also corrupted the 'x' inside 'np.exp' -> 'np.ex_valp' -> eval
+    # -> nan, so EVERY function containing exp() was misclassified as non-PS-like (e.g. the
+    # PS-like e^{t0/sigma^2}/(t1+sigma) was wrongly rejected). See log.md 2026-06-10.
+    s = re.sub(r'\bx\b', 'x_val', s)
     x_val = x
     with np.errstate(all='ignore'):
         try:
@@ -49,8 +53,10 @@ def _check_ps_like(func_str, params, sigma_vals=(100, 1000, 10000)):
     return converging and f_decaying and np.isfinite(alpha_est) and (0.5 < alpha_est < 1.5)
 
 
-def load_ps_like_for_hmf(sim=50):
+def load_ps_like_for_hmf(sim=50, variant='extended'):
     """Load PS-like function data for the HMF panel.
+
+    ``variant`` selects the fiducial (16-bin) or extended (18-bin) per-sim data.
 
     Returns list of dicts with keys: func, complexity, DL, NLL, ps_like.
     DL and NLL are for the given sim (not combined).
@@ -71,8 +77,9 @@ def load_ps_like_for_hmf(sim=50):
     except FileNotFoundError:
         pass
 
-    # Load per-sim data for all 200 functions
-    final_all = f'hmf_data/hmf_{sim}_data/final_all.txt'
+    # Load per-sim data for all 200 functions (final_all_trimmed.txt = fiducial per-sim data)
+    final_all = (f'hmf_data/hmf_{sim}_data/final_all_trimmed.txt' if variant == 'fiducial'
+                 else f'hmf_data/hmf_{sim}_data/final_all.txt')
     sim_data = {}  # func_str -> (DL, NLL, params)
     with open(final_all) as fh:
         for line in fh:
@@ -88,7 +95,8 @@ def load_ps_like_for_hmf(sim=50):
             sim_data[func_str] = (dl, nll, params)
 
     # Load combined ranking for rank info
-    combined_file = 'hmf_combined_DL.txt'
+    combined_file = ('hmf_combined_DL_fiducial.txt' if variant == 'fiducial'
+                     else 'hmf_combined_DL.txt')
     results = []
     with open(combined_file) as fh:
         for line in fh:
@@ -126,10 +134,19 @@ def coloured_ylabel(fig, ax, fontsize=11, x_offset=0.05, y_offset=None):
              rotation=90, ha='center', va='top')
 
 
-def load_pareto_data(data_set):
-    """Load DL and NLL from final_functions file."""
+def load_pareto_data(data_set, variant='extended'):
+    """Load DL and NLL from final_functions file.
+
+    For the HMF, ``variant`` selects the fiducial (16-bin, main text) or
+    extended (18-bin, Appendix B) ranking. Ignored for LF/SMF datasets.
+    """
+    if data_set == 'hmf_50':
+        fname = ('hmf_50_final_functions_fiducial.txt' if variant == 'fiducial'
+                 else 'hmf_50_final_functions_extended.txt')
+    else:
+        fname = '{}_final_functions.txt'.format(data_set)
     source, comp, DL, NLL, plot_fcn, blank_fcn = np.loadtxt(
-        '{}_final_functions.txt'.format(data_set), dtype=str, delimiter=';', unpack=True)
+        fname, dtype=str, delimiter=';', unpack=True)
     DL = DL.astype(float)
     NLL = NLL.astype(float)
     return source, comp.astype(int), DL, NLL
@@ -199,9 +216,10 @@ def add_break_marks(fig, ax_left, ax_right, dx=0.004, dy=0.007, x_shift=-0.0015,
 
 
 def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None,
-                tick_fontsize=11, legend_fontsize=8, show_lit_legend=False):
+                tick_fontsize=11, legend_fontsize=8, show_lit_legend=False,
+                xmax_cap_override=None, variant='extended'):
     """Plot Pareto front for a single dataset onto a list of broken-x sub-axes."""
-    source, comp, DL, NLL = load_pareto_data(data_set)
+    source, comp, DL, NLL = load_pareto_data(data_set, variant=variant)
 
     # ESR Pareto: use 'ESR' entries (per-complexity bests); skip 'ESR_C'/'ESR_T' (overall rankings)
     esr_mask = source == 'ESR'
@@ -240,6 +258,9 @@ def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None,
         'Ber. Paper': ('+', 'Bernardi'),
         'Ber.orig': ('1', 'Bernardi (orig.)'),
         'DblSch.': ('d', 'Dbl. Schechter'),
+        'Sau.': ('p', 'Saunders'),
+        'S-T.': ('h', 'Sheth-Tormen'),
+        'Jen.': ('*', 'Jenkins'),
     }
 
     ds_label = 'LF' if 'LF' in data_set else ('SMF' if 'SMF' in data_set else 'HMF')
@@ -288,14 +309,16 @@ def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None,
         'LF_cmodel_L': -35,
     }
     XMAX_OVERRIDES = {
-        'hmf_50': 16.5,
+        'hmf_50': 25,  # extend to show Sheth-Tormen at complexity 24
     }
     if data_set in YMAX_OVERRIDES:
         ymax = YMAX_OVERRIDES[data_set]
+    if data_set == 'hmf_50' and variant == 'extended':
+        ymax = 170  # Fig B2 (extended HMF Pareto): raise upper limit
     if data_set in YMIN_OVERRIDES:
         ymin = YMIN_OVERRIDES[data_set]
-    if data_set in XMAX_OVERRIDES:
-        xmax_cap = XMAX_OVERRIDES[data_set]
+    xmax_cap = xmax_cap_override if xmax_cap_override is not None else XMAX_OVERRIDES.get(data_set)
+    if xmax_cap is not None:
         segments = [(xmin_s, min(xmax_s, xmax_cap), [t for t in ticks_s if t <= xmax_cap])
                      for xmin_s, xmax_s, ticks_s in segments]
 
@@ -361,10 +384,12 @@ def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None,
     if ps_like_data is not None:
         from matplotlib.lines import Line2D as L2D
         loc_handles = [
+            L2D([], [], color='grey', marker='o', linestyle='-', ms=5),
             L2D([], [], color='purple', marker='s', linestyle='-', ms=5, lw=1.8),
             L2D([], [], color='darkcyan', marker='s', linestyle='-', ms=5, lw=1.8),
         ]
         loc_labels = [
+            'ESR',
             r'PS-like $\Delta$DL',
             r'PS-like $\Delta$NLL',
         ]
@@ -372,8 +397,10 @@ def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None,
             loc_handles += [
                 L2D([], [], color='grey', marker='^', linestyle='None', ms=8, markeredgewidth=1.5),
                 L2D([], [], color='grey', marker='x', linestyle='None', ms=8, markeredgewidth=1.5),
+                L2D([], [], color='grey', marker='h', linestyle='None', ms=8, markeredgewidth=1.5),
+                L2D([], [], color='grey', marker='*', linestyle='None', ms=10, markeredgewidth=1.5),
             ]
-            loc_labels += ['Warren', 'Tinker']
+            loc_labels += ['Warren', 'Tinker', 'Sheth-Tormen', 'Jenkins']
         ncol = 2 if show_lit_legend else 1
         ax_list[-1].legend(loc_handles, loc_labels, loc='upper right', ncol=ncol,
                            fontsize=legend_fontsize, frameon=True, framealpha=0.9)
@@ -393,21 +420,23 @@ def plot_pareto(ax_list, segments, data_set, datasets_info, ps_like_data=None,
 
 def make_single_panel_figure(data_set, output_path, ps_like_data=None,
                               label_fontsize=11, tick_fontsize=11, legend_fontsize=8,
-                              figsize=(5.6, 4.0), ylabel_x_offset=0.05):
+                              figsize=(5.6, 4.0), ylabel_x_offset=0.05,
+                              hmf_xmax_cut=16.5, variant='extended'):
     """Create one Pareto panel (with broken x-axis if needed) for a single dataset."""
-    source, comp, DL, NLL = load_pareto_data(data_set)
+    source, comp, DL, NLL = load_pareto_data(data_set, variant=variant)
+    seg_comp = comp[~np.isin(source, ['ESR_C', 'ESR_T'])]
     if ps_like_data is not None:
         ps_comps_extra = [e['complexity'] for e in ps_like_data
                           if e['ps_like'] and e['complexity'] is not None]
-        all_comps = np.concatenate([comp, np.array(ps_comps_extra, dtype=int)])
+        all_comps = np.concatenate([seg_comp, np.array(ps_comps_extra, dtype=int)])
         segments = split_complexity_segments(all_comps, min_gap=3, pad=0.35)
     else:
-        segments = split_complexity_segments(comp, min_gap=3, pad=0.35)
+        segments = split_complexity_segments(seg_comp, min_gap=3, pad=0.35)
     segments = apply_lower_x_cut(segments, LOWER_X_CUTS.get(data_set))
 
-    # HMF: cap upper x at 16.5 and insert tick 15 in the 14-16 segment
+    # HMF: cap upper x and insert tick 15 in the 14-16 segment
     if data_set == 'hmf_50':
-        xmax_cut = 16.5
+        xmax_cut = hmf_xmax_cut
         new_segs = []
         for xmin_s, xmax_s, ticks_s in segments:
             if xmin_s > xmax_cut:
@@ -436,7 +465,10 @@ def make_single_panel_figure(data_set, output_path, ps_like_data=None,
                               ps_like_data=ps_like_data,
                               tick_fontsize=tick_fontsize,
                               legend_fontsize=legend_fontsize,
-                              show_lit_legend=True)
+                              show_lit_legend=True,
+                              xmax_cap_override=(hmf_xmax_cut if data_set == 'hmf_50'
+                                                 else None),
+                              variant=variant)
 
     fig.subplots_adjust(top=0.97, left=0.18, right=0.98, bottom=0.17)
     coloured_ylabel(fig, ax_list[0], fontsize=label_fontsize, x_offset=ylabel_x_offset)
@@ -454,6 +486,378 @@ def make_single_panel_figure(data_set, output_path, ps_like_data=None,
 
     fig.savefig(output_path, dpi=200, bbox_inches='tight')
     plt.close(fig)
+
+
+def draw_hmf_pf_panel(fig, cell, datasets_info, tick_fontsize=11, legend_fontsize=8):
+    """Draw the HMF Pareto panel from the TRUE combined-over-100-sims PF front.
+
+    Data: the v2 no-MIN_SIMS candidate pool (top-3000-per-realisation nomination,
+    donor-filled on the 10 selection realisations, then top 200 per complexity)
+    re-fit on all 100 realisations (pf_refit_combined.txt). This replaces the
+    earlier panel, which showed a single realisation (sim 50). DeltaDL/DeltaNLL
+    are combined over all 100 sims relative to the overall-best (comp-10 rank-1)
+    function, matching the combined ranking of Table~\\ref{tab:HMF_functions}.
+
+    Returns (ax_list, segments, break_pairs) and registers the literature markers
+    in datasets_info (under 'HMF') for the unified legend.
+    """
+    from collections import defaultdict
+    from matplotlib.lines import Line2D as L2D
+
+    rows = [l.strip().split(';') for l in open('pf_refit_combined.txt')
+            if l.strip() and not l.startswith('#')]
+    func = [r[1] for r in rows]
+    comp = np.array([int(r[2]) for r in rows])
+    DLc = np.array([float(r[3]) for r in rows])
+    NLLc = np.array([float(r[5]) for r in rows])
+    nsims = np.array([int(r[8]) for r in rows])
+    best_DL, best_NLL = DLc[0], NLLc[0]
+
+    # ESR Pareto front: minimum combined DeltaDL per complexity (full-100-sim funcs)
+    esr_c, esr_dDL, esr_dNLL = [], [], []
+    for c in sorted(set(comp.tolist())):
+        m = (comp == c) & (nsims == 100)
+        idx = np.where(m)[0][np.argmin(DLc[m])]
+        esr_c.append(c); esr_dDL.append(DLc[idx] - best_DL); esr_dNLL.append(NLLc[idx] - best_NLL)
+    esr_c = np.array(esr_c); esr_dDL = np.array(esr_dDL); esr_dNLL = np.array(esr_dNLL)
+
+    # PS-like front: classify candidates with sim-50 params, min combined DL/NLL per comp
+    def _pp(b):
+        b = b.strip()
+        if b in ('none', 'nan', ''):
+            return None
+        try:
+            return [float(x) for x in b.split()]
+        except ValueError:
+            return None
+    sim50 = {}
+    for l in open('pf_refit_sim50.txt'):
+        p = l.strip().split(';')
+        if len(p) >= 6:
+            sim50[p[0]] = _pp(p[5])
+    ps_dl, ps_nll = defaultdict(list), defaultdict(list)
+    for i, fn in enumerate(func):
+        if nsims[i] != 100:
+            continue
+        pr = sim50.get(fn)
+        if pr is not None and _check_ps_like(fn, pr):
+            ps_dl[comp[i]].append(DLc[i] - best_DL)
+            ps_nll[comp[i]].append(NLLc[i] - best_NLL)
+    ps_front_c = np.array(sorted(ps_dl))
+    ps_front_dl = np.array([min(ps_dl[c]) for c in ps_front_c])
+    ps_front_nll = np.array([min(ps_nll[c]) for c in ps_front_c])
+
+    # Literature (combined; files store +magnitude = -DL_combined). S-T/Jenkins from
+    # the dedicated extended-style fiducial refit (consistent reparam forms).
+    lit_comp = {'P.Sch.': 10, 'Jen.': 13, 'War.': 14, 'Tin.': 16, 'S-T.': 24}
+    lit_mk = {'P.Sch.': ('*', 'Press-Sch.'), 'War.': ('^', 'Warren'),
+              'Tin.': ('x', 'Tinker'), 'S-T.': ('h', 'Sheth-Tormen'),
+              'Jen.': ('*', 'Jenkins')}
+    lit = {}
+    for fname in ('literature_combined_DL_trimmed.txt', 'literature_st_jenkins_combined.txt'):
+        for l in open(fname):
+            l = l.strip()
+            if not l or l.startswith('#'):
+                continue
+            p = l.split(';')
+            lit[p[0]] = (lit_comp[p[0]], -float(p[1]) - best_DL, -float(p[2]) - best_NLL)
+
+    # Broken-axis segments: lower cut 6.8 (drop comp 6), upper cut 25, tick 15 inserted
+    all_comps = np.concatenate([esr_c, ps_front_c, np.array([lit[n][0] for n in lit])])
+    segments = split_complexity_segments(all_comps, min_gap=3, pad=0.35)
+    segments = apply_lower_x_cut(segments, 6.8)
+    segments = [(xn, min(xm, 25), [t for t in tk if t <= 25])
+                for xn, xm, tk in segments if xn <= 25]
+    for j, (xn, xm, tk) in enumerate(segments):
+        if xn <= 15 <= xm and 15 not in tk:
+            segments[j] = (xn, xm, sorted(tk + [15]))
+
+    ymax = 15000.0
+    ymin = -0.03 * ymax
+
+    width_ratios = [max(xm - xn, 0.5) for xn, xm, _ in segments]
+    inner = cell.subgridspec(1, len(segments), wspace=0.05, width_ratios=width_ratios)
+    ax_list = []
+    for j in range(len(segments)):
+        ax = fig.add_subplot(inner[0, j], sharey=ax_list[0] if ax_list else None)
+        ax_list.append(ax)
+
+    for ax, (xn, xm, tk) in zip(ax_list, segments):
+        ax.set_xlim(xn, xm)
+        ax.set_ylim(ymin, ymax)
+        ax.set_xticks(tk)
+        ax.tick_params(labelsize=tick_fontsize)
+        # ESR front (full arrays so the off-scale comp-6 point clips to a near-vertical line)
+        ax.plot(esr_c, esr_dDL, 'o-', color='C0', ms=5, lw=1.5, zorder=5)
+        ax.plot(esr_c, esr_dNLL, 'o-', color='C3', ms=5, lw=1.5, zorder=4)
+        # PS-like front (purple / darkcyan), same treatment
+        ax.plot(ps_front_c, ps_front_dl, 's-', color='purple', ms=6, lw=1.8, zorder=7)
+        ax.plot(ps_front_c, ps_front_nll, 's-', color='darkcyan', ms=6, lw=1.8, zorder=7)
+        # Literature markers (blue DL + red NLL), off-scale skipped
+        for name, (lc, dl, nll) in lit.items():
+            if not (xn <= lc <= xm):
+                continue
+            mk = lit_mk[name][0]
+            if ymin <= dl <= ymax:
+                ax.scatter(lc, dl, marker=mk, color='C0', s=70, linewidths=1.5, zorder=6)
+            if ymin <= nll <= ymax:
+                ax.scatter(lc, nll, marker=mk, color='C3', s=70, linewidths=1.5, zorder=6)
+            if name != 'P.Sch.':   # P.Sch off-scale -> not in legend
+                if name not in datasets_info:
+                    datasets_info[name] = {'marker': mk, 'name': lit_mk[name][1], 'datasets': set()}
+                datasets_info[name]['datasets'].add('HMF')
+
+    break_pairs = []
+    for i in range(len(ax_list) - 1):
+        ax_list[i].spines['right'].set_visible(False)
+        ax_list[i + 1].spines['left'].set_visible(False)
+        ax_list[i + 1].tick_params(labelleft=False, left=False)
+        break_pairs.append((ax_list[i], ax_list[i + 1]))
+
+    # Local PS-like legend (ESR + literature are in the unified legend);
+    # placed in the top-right segment so it sits at the panel's top right
+    ax_list[-1].legend(
+        [L2D([], [], color='purple', marker='s', ls='-', ms=5, lw=1.8),
+         L2D([], [], color='darkcyan', marker='s', ls='-', ms=5, lw=1.8)],
+        [r'PS-like $\Delta$DL', r'PS-like $\Delta$NLL'],
+        loc='upper right', fontsize=legend_fontsize, frameon=True, framealpha=0.9)
+
+    return ax_list, segments, break_pairs
+
+
+# ── Extended (Appendix B) combined-PF HMF panel ──────────────────────────────
+# TRUE extended best — normalisation reference, kept consistent with Table B1.
+# CLAUDEADD 2026-06-10: switched from the ~/ESR det-I codelen (-3555040871.21) to the
+# PAPER diagonal-Fisher codelen (rank-1 recomputed; jobs 744636/744652) to match the
+# rebuilt Table B1 and the main-text DL formula. NLL unchanged (fits identical).
+TRUE_BEST_DL_EXT = -3555040281.634192
+TRUE_BEST_NLL_EXT = -3555042797.586635
+
+
+def _load_gencomp(path='hmf_func_gencomp.txt'):
+    """function -> ESR generation complexity (default 10 if absent)."""
+    m = {}
+    try:
+        for line in open(path):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            p = line.split(';')
+            m[p[0]] = int(p[1])
+    except FileNotFoundError:
+        pass
+    return m
+
+
+def draw_hmf_pf_panel_extended(fig, cell, tick_fontsize=11, legend_fontsize=8,
+                               ymax=11000.0):
+    """Draw the EXTENDED-range HMF Pareto panel (Fig.~B2): the analogue of
+    draw_hmf_pf_panel() for the full (18-bin) mass range.
+
+    ESR front = per-complexity minimum combined DeltaDL over the MERGE of
+      (i) the fiducial PF candidates re-fit on the extended data
+          (pf_refit_combined_extended.txt, v2 job 744570) — gives comp 6-10
+          coverage and the PS-like classification; and
+      (ii) the retained true-extended ranking (hmf_combined_DL_diagonal.txt), which
+          supplies the genuine best functions (comp 9-10) that are absent from
+          the fiducial candidate pool.
+    Everything is normalised to the TRUE extended best (rank-0 of
+    hmf_combined_DL_diagonal.txt) so the panel stays consistent with Table~B1.
+
+    Returns (ax_list, segments, break_pairs).
+    """
+    from collections import defaultdict
+
+    best_DL, best_NLL = TRUE_BEST_DL_EXT, TRUE_BEST_NLL_EXT
+    gencomp = _load_gencomp()
+
+    # (i) fiducial candidates re-fit on extended data
+    cand = []
+    for l in open('pf_refit_combined_extended.txt'):
+        l = l.strip()
+        if not l or l.startswith('#'):
+            continue
+        p = l.split(';')
+        cand.append((p[1], int(p[2]), float(p[3]), float(p[5]), int(p[8])))
+    # (ii) retained true-extended ranking (complexities via the generation map)
+    # CLAUDEADD 2026-06-10: use the diagonal-codelen recompute (hmf_combined_DL_diagonal.txt,
+    # top-25 true-ranking funcs re-fit to the paper codelen) instead of the det-I
+    # hmf_combined_DL.txt, so the front matches the rebuilt Table B1.
+    true_rows = []
+    true_nlls = []
+    for l in open('hmf_combined_DL_diagonal.txt'):
+        l = l.strip()
+        if not l or l.startswith('#'):
+            continue
+        p = l.split(';')
+        true_rows.append((p[1], gencomp.get(p[1], 10), float(p[2]), float(p[4]), int(p[7])))
+        true_nlls.append(float(p[4]))
+
+    # Merged ESR front: per-complexity min combined DL across both sources
+    # (full-100-sim functions only). If a candidate has the same NLL as one of
+    # the retained true-ranking rows it is an equivalent tree representative;
+    # prefer the diagonal Table-B1 row so the plotted front cannot go below its
+    # own normalisation because of a mixed structural-code convention.
+    front = {}
+    for func, c, dl, nll, n in true_rows:
+        if n != 100:
+            continue
+        if c not in front or dl < front[c][0]:
+            front[c] = (dl, nll)
+    for func, c, dl, nll, n in cand:
+        if n != 100:
+            continue
+        if any(abs(nll - tnll) <= 0.05 for tnll in true_nlls):
+            continue
+        if c not in front or dl < front[c][0]:
+            front[c] = (dl, nll)
+    esr_c = np.array(sorted(front))
+    esr_dDL = np.array([front[c][0] - best_DL for c in esr_c])
+    esr_dNLL = np.array([front[c][1] - best_NLL for c in esr_c])
+
+    # PS-like front: classify candidates with extended sim-50 params
+    def _pp(b):
+        b = b.strip()
+        if b in ('none', 'nan', ''):
+            return None
+        try:
+            return [float(x) for x in b.split()]
+        except ValueError:
+            return None
+    sim50 = {}
+    for l in open('pf_refit_persim_extended.txt'):
+        p = l.strip().split(';')
+        if len(p) >= 6 and p[1] == '50':
+            sim50[p[0]] = _pp(p[5])
+    ps_dl, ps_nll = defaultdict(list), defaultdict(list)
+    for func, c, dl, nll, n in cand:
+        if n != 100:
+            continue
+        pr = sim50.get(func)
+        if pr is not None and _check_ps_like(func, pr):
+            ps_dl[c].append(dl - best_DL)
+            ps_nll[c].append(nll - best_NLL)
+    ps_front_c = np.array(sorted(ps_dl))
+    ps_front_dl = np.array([min(ps_dl[c]) for c in ps_front_c])
+    ps_front_nll = np.array([min(ps_nll[c]) for c in ps_front_c])
+
+    # Literature (files store +magnitude = -DL_combined). War/Tin/P.Sch from
+    # literature_combined_DL.txt (read last -> wins for the War/Tin duplicates),
+    # S-T/Jenkins from literature_st_jenkins_extended.txt; matches Table~B1.
+    lit_comp = {'P.Sch.': 10, 'Jen.': 13, 'War.': 14, 'Tin.': 16, 'S-T.': 24}
+    lit_mk = {'P.Sch.': ('*', 'Press-Sch.'), 'War.': ('^', 'Warren'),
+              'Tin.': ('x', 'Tinker'), 'S-T.': ('h', 'Sheth-Tormen'),
+              'Jen.': ('*', 'Jenkins')}
+    lit = {}
+    for fname in ('literature_st_jenkins_extended.txt', 'literature_combined_DL.txt'):
+        for l in open(fname):
+            l = l.strip()
+            if not l or l.startswith('#'):
+                continue
+            p = l.split(';')
+            if p[0] not in lit_comp:
+                continue
+            lit[p[0]] = (lit_comp[p[0]], -float(p[1]) - best_DL, -float(p[2]) - best_NLL)
+
+    # Broken-axis segments (mirror fiducial, but start just before comp 8 so
+    # off-scale low-complexity tails do not dominate the panel edge).
+    all_comps = np.concatenate([esr_c, ps_front_c, np.array([lit[n][0] for n in lit])])
+    segments = split_complexity_segments(all_comps, min_gap=3, pad=0.35)
+    segments = apply_lower_x_cut(segments, 7.8)
+    segments = [(xn, min(xm, 25), [t for t in tk if t <= 25])
+                for xn, xm, tk in segments if xn <= 25]
+    for j, (xn, xm, tk) in enumerate(segments):
+        if xn <= 15 <= xm and 15 not in tk:
+            segments[j] = (xn, xm, sorted(tk + [15]))
+
+    ymin = -0.03 * ymax
+
+    width_ratios = [max(xm - xn, 0.5) for xn, xm, _ in segments]
+    inner = cell.subgridspec(1, len(segments), wspace=0.05, width_ratios=width_ratios)
+    ax_list = []
+    for j in range(len(segments)):
+        ax = fig.add_subplot(inner[0, j], sharey=ax_list[0] if ax_list else None)
+        ax_list.append(ax)
+
+    for ax, (xn, xm, tk) in zip(ax_list, segments):
+        ax.set_xlim(xn, xm)
+        ax.set_ylim(ymin, ymax)
+        ax.set_xticks(tk)
+        ax.tick_params(labelsize=tick_fontsize)
+        # ESR + PS-like fronts (full arrays so off-scale low-comp points clip to
+        # near-vertical lines, as in the fiducial panel)
+        ax.plot(esr_c, esr_dDL, 'o-', color='C0', ms=5, lw=1.5, zorder=5)
+        ax.plot(esr_c, esr_dNLL, 'o-', color='C3', ms=5, lw=1.5, zorder=4)
+        ax.plot(ps_front_c, ps_front_dl, 's-', color='purple', ms=6, lw=1.8, zorder=7)
+        ax.plot(ps_front_c, ps_front_nll, 's-', color='darkcyan', ms=6, lw=1.8, zorder=7)
+        # Literature markers (blue DL + red NLL); off-scale (P.Sch, Jenkins) skipped
+        for name, (lc, dl, nll) in lit.items():
+            if not (xn <= lc <= xm):
+                continue
+            mk = lit_mk[name][0]
+            if ymin <= dl <= ymax:
+                ax.scatter(lc, dl, marker=mk, color='C0', s=70, linewidths=1.5, zorder=6)
+            if ymin <= nll <= ymax:
+                ax.scatter(lc, nll, marker=mk, color='C3', s=70, linewidths=1.5, zorder=6)
+
+    break_pairs = []
+    for i in range(len(ax_list) - 1):
+        ax_list[i].spines['right'].set_visible(False)
+        ax_list[i + 1].spines['left'].set_visible(False)
+        ax_list[i + 1].tick_params(labelleft=False, left=False)
+        break_pairs.append((ax_list[i], ax_list[i + 1]))
+
+    return ax_list, segments, break_pairs
+
+
+def make_hmf_pf_extended_figure(output_path, label_fontsize=16, tick_fontsize=14,
+                                legend_fontsize=12, figsize=(6.8, 5.0),
+                                ylabel_x_offset=0.10, ymax=11000.0):
+    """Standalone single-panel figure for the extended HMF Pareto front (Fig.~B2)."""
+    from matplotlib.lines import Line2D as L2D
+
+    fig = plt.figure(figsize=figsize)
+    cell = fig.add_gridspec(1, 1)[0, 0]
+    ax_list, segments, break_pairs = draw_hmf_pf_panel_extended(
+        fig, cell, tick_fontsize=tick_fontsize, legend_fontsize=legend_fontsize,
+        ymax=ymax)
+
+    fig.subplots_adjust(top=0.86, left=0.18, right=0.98, bottom=0.15)
+
+    # Top legend (covers everything; ESR shown grey, DL/NLL distinguished by y-label)
+    handles = [
+        L2D([], [], color='grey', marker='o', ls='-', ms=5),
+        L2D([], [], color='purple', marker='s', ls='-', ms=5, lw=1.8),
+        L2D([], [], color='darkcyan', marker='s', ls='-', ms=5, lw=1.8),
+        L2D([], [], color='grey', marker='^', ls='None', ms=8, markeredgewidth=1.5),
+        L2D([], [], color='grey', marker='x', ls='None', ms=8, markeredgewidth=1.5),
+        L2D([], [], color='grey', marker='h', ls='None', ms=8, markeredgewidth=1.5),
+    ]
+    labels = ['ESR', r'PS-like $\Delta$DL', r'PS-like $\Delta$NLL',
+              'Warren', 'Tinker', 'Sheth-Tormen']
+    fig.legend(handles, labels, loc='upper center', ncol=3, fontsize=legend_fontsize,
+               frameon=True, bbox_to_anchor=(0.58, 1.0))
+
+    coloured_ylabel(fig, ax_list[0], fontsize=label_fontsize, x_offset=ylabel_x_offset)
+    fig_w, fig_h = fig.get_size_inches()
+    sx, sy = 12.0 / fig_w, 11.0 / fig_h
+    for left_ax, right_ax in break_pairs:
+        add_break_marks(fig, left_ax, right_ax,
+                        dx=0.004 * sx, dy=0.007 * sy, sep=0.006 * sx)
+
+    left_box = ax_list[0].get_position()
+    right_box = ax_list[-1].get_position()
+    x_center = 0.5 * (left_box.x0 + right_box.x1)
+    fig.text(x_center, left_box.y0 - 0.06, 'Complexity', ha='center', va='top',
+             fontsize=label_fontsize)
+
+    import os
+    fig.savefig(output_path, dpi=200, bbox_inches='tight')
+    png = output_path.replace('Final_Plots', 'Plots').replace('.pdf', '.png')
+    os.makedirs(os.path.dirname(png), exist_ok=True)
+    fig.savefig(png, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    return output_path
 
 
 # All datasets
@@ -474,9 +878,9 @@ LOWER_X_CUTS = {
 }
 
 if __name__ == '__main__':
-    # Pre-load PS-like data for the HMF panel
+    # Pre-load PS-like data for the HMF panel (main text = fiducial mass bins)
     print("Loading PS-like data for HMF panel...")
-    hmf_ps_data = load_ps_like_for_hmf(sim=50)
+    hmf_ps_data = load_ps_like_for_hmf(sim=50, variant='fiducial')
     n_ps = sum(1 for e in hmf_ps_data if e['ps_like'])
     print(f"  Found {n_ps} PS-like functions among top 200")
 
@@ -488,19 +892,30 @@ if __name__ == '__main__':
     all_break_pairs = []
 
     for i, (ds, title) in enumerate(all_datasets):
-        source, comp, DL, NLL = load_pareto_data(ds)
+        if ds == 'hmf_50':
+            # HMF panel: TRUE combined-over-100-sims PF front (centred, bottom row)
+            cell = outer[2, :].subgridspec(1, 3, wspace=0, width_ratios=[1, 2, 1])[0, 1]
+            ax_list, segments, break_pairs = draw_hmf_pf_panel(fig, cell, datasets_info)
+            all_break_pairs.extend(break_pairs)
+            panel_axes.append((ax_list, segments))
+            continue
+        # Main text uses the fiducial (16-bin) HMF ranking
+        variant = 'fiducial' if ds == 'hmf_50' else 'extended'
+        source, comp, DL, NLL = load_pareto_data(ds, variant=variant)
+        # Segments/ticks driven by plotted functions only (skip ESR_C/ESR_T overall rankings)
+        seg_comp = comp[~np.isin(source, ['ESR_C', 'ESR_T'])]
         # For HMF, include PS-like complexities in segment computation
         if ds == 'hmf_50' and hmf_ps_data is not None:
             ps_comps_extra = [e['complexity'] for e in hmf_ps_data
                               if e['ps_like'] and e['complexity'] is not None]
-            all_comps = np.concatenate([comp, np.array(ps_comps_extra, dtype=int)])
+            all_comps = np.concatenate([seg_comp, np.array(ps_comps_extra, dtype=int)])
             segments = split_complexity_segments(all_comps, min_gap=3, pad=0.35)
         else:
-            segments = split_complexity_segments(comp, min_gap=3, pad=0.35)
+            segments = split_complexity_segments(seg_comp, min_gap=3, pad=0.35)
         segments = apply_lower_x_cut(segments, LOWER_X_CUTS.get(ds))
 
-        # Apply upper x cut (e.g. HMF: cap at 16.5)
-        UPPER_X_CUTS = {'hmf_50': 16.5}
+        # Apply upper x cut (HMF: extend to show Sheth-Tormen at complexity 24)
+        UPPER_X_CUTS = {'hmf_50': 25}
         if ds in UPPER_X_CUTS:
             xmax_cut = UPPER_X_CUTS[ds]
             new_segs = []
@@ -514,6 +929,13 @@ if __name__ == '__main__':
                 if 14 <= xmax_s and 15 not in ticks_s and xmin_s <= 15 <= xmax_s:
                     ticks_s.append(15)
                     ticks_s.sort()
+                    segments[j] = (xmin_s, xmax_s, ticks_s)
+
+        # For LF/SMF, fill in tick 22 between the Saunders (21) and Bernardi-orig (23) points
+        if ds != 'hmf_50':
+            for j, (xmin_s, xmax_s, ticks_s) in enumerate(segments):
+                if xmin_s <= 22 <= xmax_s and 22 not in ticks_s:
+                    ticks_s = sorted(ticks_s + [22])
                     segments[j] = (xmin_s, xmax_s, ticks_s)
 
         if i < 4:
@@ -538,7 +960,8 @@ if __name__ == '__main__':
             ax_list.append(ax)
 
         ps_data = hmf_ps_data if ds == 'hmf_50' else None
-        break_pairs = plot_pareto(ax_list, segments, ds, datasets_info, ps_like_data=ps_data)
+        break_pairs = plot_pareto(ax_list, segments, ds, datasets_info,
+                                  ps_like_data=ps_data, variant=variant)
         all_break_pairs.extend(break_pairs)
         panel_axes.append((ax_list, segments))
 
@@ -549,22 +972,23 @@ if __name__ == '__main__':
     leg_handles.append(Line2D([], [], color='grey', marker='o', linestyle='-', ms=5))
     leg_labels.append('ESR')
 
-    for key in ['Ber.', 'Ber.orig', 'DblSch.', 'War.', 'Tin.']:
+    for key in ['Ber.', 'Ber.orig', 'DblSch.', 'Sau.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
         if key in datasets_info:
             info = datasets_info[key]
             ds_str = ', '.join(sorted(info['datasets']))
             leg_handles.append(Line2D([], [], color='grey', marker=info['marker'],
                                       linestyle='None', ms=8, markeredgewidth=1.5))
-            leg_labels.append(f"{info['name']} ({ds_str})")
+            leg_labels.append(f"{info['name']}")
 
-    fig.legend(leg_handles, leg_labels, loc='upper center', ncol=6, fontsize=10,
-               bbox_to_anchor=(0.5, 1.01), frameon=True)
+    fig.legend(leg_handles, leg_labels, loc='upper center', ncol=5, fontsize=10,
+               bbox_to_anchor=(0.5, 1.03), frameon=True)
 
     fig.subplots_adjust(top=0.955, left=0.08, right=0.98, bottom=0.06)
 
-    # Y-axis labels
-    for ax_list, _ in panel_axes:
-        coloured_ylabel(fig, ax_list[0], fontsize=11)
+    # Y-axis labels (HMF has 5-digit tick numbers -> nudge its label further left)
+    for (ax_list, _), (ds, _title) in zip(panel_axes, all_datasets):
+        x_off = 0.07 if ds == 'hmf_50' else 0.05
+        coloured_ylabel(fig, ax_list[0], fontsize=11, x_offset=x_off)
 
     # Panel titles centred across full broken-axis span
     for (ax_list, _segs), (_, title) in zip(panel_axes, all_datasets):
@@ -593,12 +1017,13 @@ if __name__ == '__main__':
 
     plt.savefig('Final_Plots/Pareto_all.pdf', dpi=200, bbox_inches='tight')
 
-    # Standalone panels for LaTeX subfigures
-    make_single_panel_figure('LF_Ser_L', 'Final_Plots/Pareto_LF_Sérsic.pdf')
-    make_single_panel_figure('LF_cmodel_L', 'Final_Plots/Pareto_LF_cmodel.pdf')
-    make_single_panel_figure('SMF_Ser_M', 'Final_Plots/Pareto_SMF_Sérsic.pdf')
-    make_single_panel_figure('SMF_cmodel_M', 'Final_Plots/Pareto_SMF_cmodel.pdf')
-    make_single_panel_figure('hmf_50', 'Final_Plots/Pareto_HMF.pdf', ps_like_data=hmf_ps_data)
+    # Standalone panels (not used in paper) — save to Plots/
+    make_single_panel_figure('LF_Ser_L', 'Plots/Pareto_LF_Sérsic.pdf')
+    make_single_panel_figure('LF_cmodel_L', 'Plots/Pareto_LF_cmodel.pdf')
+    make_single_panel_figure('SMF_Ser_M', 'Plots/Pareto_SMF_Sérsic.pdf')
+    make_single_panel_figure('SMF_cmodel_M', 'Plots/Pareto_SMF_cmodel.pdf')
+    make_single_panel_figure('hmf_50', 'Plots/Pareto_HMF.pdf', ps_like_data=hmf_ps_data,
+                             variant='fiducial')
 
     plt.show()
     plt.clf()

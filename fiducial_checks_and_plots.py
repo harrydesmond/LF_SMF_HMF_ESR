@@ -1,8 +1,8 @@
 """
-Physicality checks + comparison plots for fiducial HMF ESR results.
+Physicality checks + comparison plots for trimmed HMF ESR results.
 
 Produces:
-  1. Physicality check results for top 8 fiducial ESR functions
+  1. Physicality check results for top 8 trimmed ESR functions
   2. Final_Plots/Pareto_HMF_fiducial.pdf — Pareto front with PS-like overlay
   3. Final_Plots/HMF_functions_fiducial.pdf — Function fits (phi vs logM, 3 panels)
   4. Final_Plots/extrapolation_HMF_fiducial.pdf — Extrapolation (phi vs logM)
@@ -21,11 +21,14 @@ warnings.filterwarnings('ignore')
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# ── Colour scheme (matching extended) ──────────────────────────────────────
+# ── Colour scheme (matching untrimmed) ──────────────────────────────────────
 ESR_COLOURS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
-LIT_COLOURS = {'P.Sch.': '#17becf', 'War.': '#bcbd22', 'Tin.': '#e377c2'}
-LIT_STYLES  = {'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2))}
-LIT_LABELS  = {'P.Sch.': 'Press-Schechter', 'War.': 'Warren', 'Tin.': 'Tinker'}
+LIT_COLOURS = {'P.Sch.': '#17becf', 'War.': '#DAA520', 'Tin.': '#e377c2',
+               'S-T.': '#A0522D', 'Jen.': '#006400'}
+LIT_STYLES  = {'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2)),
+               'S-T.': (0, (4, 1)), 'Jen.': (0, (3, 1, 1, 1))}
+LIT_LABELS  = {'P.Sch.': 'Press-Schechter', 'War.': 'Warren', 'Tin.': 'Tinker',
+               'S-T.': 'Sheth-Tormen', 'Jen.': 'Jenkins'}
 
 # ── Evaluation helpers ──────────────────────────────────────────────────────
 
@@ -46,7 +49,7 @@ def make_func(template):
 # ── Data loading ────────────────────────────────────────────────────────────
 
 # Mass variance relation — use DIRECT per-bin values, not interpolation
-logM_mvm, sigma_mvm, factor_mvm = np.loadtxt('data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+logM_mvm, sigma_mvm, factor_mvm = np.loadtxt('mass_variance_multiplier.txt', dtype=float, unpack=True)
 # For interpolation on fine grids (extrapolation plots), use sigma-based interp
 factor_of_sigma = interp1d(sigma_mvm, factor_mvm, kind='cubic', fill_value='extrapolate')
 logM_of_sigma = interp1d(sigma_mvm, logM_mvm, kind='cubic', fill_value='extrapolate')
@@ -57,10 +60,10 @@ Veff = 1e9 / 0.6711**3
 delta_logm = 0.2
 
 
-def load_hmf_data(sim_id, fiducial=False):
-    data = np.loadtxt(f'data/hmf_files/hmf_{sim_id}.dat')
+def load_hmf_data(sim_id, trimmed=False):
+    data = np.loadtxt(f'hmf_files/hmf_{sim_id}_new.dat')
     n_full = len(data)
-    if fiducial:
+    if trimmed:
         data = data[2:]
         factor = factor_mvm[2:2+len(data)]
         logM_bin = logM_mvm[2:2+len(data)]
@@ -76,9 +79,9 @@ def load_hmf_data(sim_id, fiducial=False):
     return sigma, counts, logM, y, y_err, factor
 
 
-def load_fiducial_results(sim_id):
+def load_trimmed_results(sim_id):
     results = []
-    path = f'hmf_data/hmf_{sim_id}_data/final_all_fiducial.txt'
+    path = f'hmf_data/hmf_{sim_id}_data/final_all_trimmed.txt'
     with open(path) as fh:
         for line in fh:
             parts = line.strip().split(';')
@@ -107,6 +110,17 @@ def tinker_func(x, params):
     a0, a1, a2, a3 = params
     return a0 * (np.power(x / a2, -a1) + 1.0) * np.exp(-a3 * np.power(x, -2.0))
 
+def sheth_tormen_func(x, params):
+    a0, a1, a2 = params
+    delta_c = 1.686
+    nu = delta_c / x
+    return (a0 * np.sqrt(2.0 * a1 / np.pi) * nu *
+            (1.0 + np.power(a1 * nu**2, -a2)) * np.exp(-0.5 * a1 * nu**2))
+
+def jenkins_func(x, params):
+    a0, a1, a2 = params
+    return a0 * np.exp(-np.power(np.abs(np.log(1.0 / x) + a1), a2))
+
 
 lit_params = {}
 with open('literature_fits_fiducial.txt') as f:
@@ -125,6 +139,11 @@ with open('literature_fits_fiducial.txt') as f:
         if int(parts[1]) == 50:
             lit_sim50[parts[0]] = {'DL': -float(parts[2]), 'NLL': -float(parts[3])}
 
+# Sheth-Tormen and Jenkins best-fit params (sim 50, trimmed), read from the
+# fitted function strings in hmf_50_final_functions_fiducial.txt
+lit_params['S-T.'] = np.array([0.32594737, 0.64429254, 0.22974108])
+lit_params['Jen.'] = np.array([0.31880758, 0.60138646, 3.31853711])
+
 
 def eval_lit(name, sigma):
     if name == 'P.Sch.':
@@ -133,13 +152,17 @@ def eval_lit(name, sigma):
         return warren_func(sigma, lit_params['War.'])
     elif name == 'Tin.' and 'Tin.' in lit_params:
         return tinker_func(sigma, lit_params['Tin.'])
+    elif name == 'S-T.' and 'S-T.' in lit_params:
+        return sheth_tormen_func(sigma, lit_params['S-T.'])
+    elif name == 'Jen.' and 'Jen.' in lit_params:
+        return jenkins_func(sigma, lit_params['Jen.'])
     return None
 
 
 # ── Load ESR results ────────────────────────────────────────────────────────
 
 esr_results = []
-with open('hmf_combined_DL_fiducial.txt') as f:
+with open('hmf_combined_DL_fiducial_new.txt') as f:
     for line in f:
         if line.startswith('#'): continue
         parts = line.strip().split(';')
@@ -161,10 +184,10 @@ with open('hmf_fiducial_searchcomp.txt') as f:
         if len(parts) >= 2 and parts[1] != '-1':
             searchcomp_map[parts[0]] = int(parts[1])
 
-sim50_fiducial = load_fiducial_results(50)
-sim50_dict = {t: p for (t, _, _, p) in sim50_fiducial}
-sim50_dl_dict = {t: dl for (t, dl, _, _) in sim50_fiducial}
-sim50_nll_dict = {t: nll for (t, _, nll, _) in sim50_fiducial}
+sim50_trimmed = load_trimmed_results(50)
+sim50_dict = {t: p for (t, _, _, p) in sim50_trimmed}
+sim50_dl_dict = {t: dl for (t, dl, _, _) in sim50_trimmed}
+sim50_nll_dict = {t: nll for (t, _, nll, _) in sim50_trimmed}
 
 # ── PS-like detection ───────────────────────────────────────────────────────
 
@@ -197,7 +220,7 @@ def check_ps_like(func_str, params, sigma_vals=(100, 1000, 10000)):
 # Part 1: Physicality checks
 # ══════════════════════════════════════════════════════════════════════════════
 print("=" * 80)
-print("PHYSICALITY CHECKS — Top 8 fiducial ESR functions")
+print("PHYSICALITY CHECKS — Top 8 trimmed ESR functions")
 print("=" * 80)
 
 for i, r in enumerate(esr_results[:8]):
@@ -248,12 +271,12 @@ for i, r in enumerate(esr_results[:8]):
 # ══════════════════════════════════════════════════════════════════════════════
 # Part 2: Pareto front (search complexity, with PS-like)
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n\n=== Plot 2: Pareto HMF fiducial ===")
+print("\n\n=== Plot 2: Pareto HMF trimmed ===")
 
 # Per SEARCH complexity best from sim 50
 esr_comp_dl = {}
 for comp in range(4, 11):
-    path = f'hmf_fiducial_50_data/final_{comp}_fiducial.dat'
+    path = f'hmf_trimmed_50_data/final_{comp}_trimmed.dat'
     if not os.path.exists(path):
         continue
     with open(path) as fh:
@@ -267,7 +290,7 @@ best_sim50_NLL = [nll for dl, nll in esr_comp_dl.values() if dl == best_sim50_DL
 # PS-like: use SEARCH complexity
 print("  Detecting PS-like functions...")
 ps_like_entries = []
-for tmpl, dl50, nll50, p50 in sim50_fiducial:
+for tmpl, dl50, nll50, p50 in sim50_trimmed:
     sc = searchcomp_map.get(tmpl)
     if sc is None or sc < 4 or sc > 10:
         continue
@@ -326,7 +349,7 @@ fig.tight_layout()
 
 os.makedirs('Plots/Old', exist_ok=True)
 plt.savefig('Plots/Pareto_HMF_fiducial.png', dpi=150)
-plt.savefig('Final_Plots/Pareto_HMF_fiducial.pdf', bbox_inches='tight')
+plt.savefig('Plots/Pareto_HMF_fiducial.pdf', bbox_inches='tight')
 plt.close()
 print("Saved Pareto_HMF_fiducial")
 
@@ -334,9 +357,9 @@ print("Saved Pareto_HMF_fiducial")
 # ══════════════════════════════════════════════════════════════════════════════
 # Part 3: Function fits — phi(logM) (matching Fig 5)
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n=== Plot 3: HMF functions (fiducial, sim 50) ===")
+print("\n=== Plot 3: HMF functions (trimmed, sim 50) ===")
 
-sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data(50, fiducial=True)
+sigma_50, counts_50, logM_50, y_50, y_err_50, factor_50 = load_hmf_data(50, trimmed=True)
 top4_funcs = [(esr_results[0]['function'], "ESR best")]
 
 fig, (ax_data, ax_res, ax_nll) = plt.subplots(
@@ -368,7 +391,7 @@ for idx, (func, label) in enumerate(top4_funcs):
         ax_nll.plot(logM_50, (lam - counts_50 * np.log(lam)) - nll1_bins,
                     color=ESR_COLOURS[idx], lw=0.8)
 
-for name in ['P.Sch.', 'War.', 'Tin.']:
+for name in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
     f_lit = eval_lit(name, sigma_50)
     if f_lit is None:
         continue
@@ -383,13 +406,16 @@ for name in ['P.Sch.', 'War.', 'Tin.']:
     ax_nll.plot(logM_50, (lam - counts_50 * np.log(lam)) - nll1_bins,
                 color=LIT_COLOURS[name], ls=LIT_STYLES[name], lw=0.8)
 
-# Best PS-like passing physicality checks (rank 14)
-_ps_params = [3.34541494, -0.10935841, -0.17751593]
+# CLAUDEADD 2026-06-10: showcased PS-like updated to the v2 rank-17 function,
+# f(sigma) = e^{t0/sigma^2}/(t1 + sigma) (Eq. ref:eq:hmf_ps_like) -- the lowest-DL passing
+# PS-like in the v2 pool; same family as the old rank-13 |t0|^{|t1|^{ln s}}/(t2+s) showcase
+# but a cleaner, lower-DL representation. sim-50 params.
+_ps_params = [-0.83382114532, 0.65453543149]
 with np.errstate(all='ignore'):
-    _f_ps = np.power(np.abs(_ps_params[0]), (_ps_params[1] - np.power(np.abs(_ps_params[2]), np.log(sigma_50)))) / sigma_50
+    _f_ps = np.exp(_ps_params[0] / sigma_50**2) / (_ps_params[1] + sigma_50)
 _phi_ps = _f_ps * factor_50
 _y_ps = np.log10(np.where(_phi_ps > 0, _phi_ps, 1e-300))
-ax_data.plot(logM_50, _y_ps, color='darkcyan', lw=1.4, label=r'PS-like', zorder=5)
+ax_data.plot(logM_50, _y_ps, color='darkcyan', lw=1.4, label=r'PS-like (Eq. 16)', zorder=5)
 ax_res.plot(logM_50, (_y_ps - y_50) / y_err_50, color='darkcyan', lw=0.8)
 _lam_ps = _f_ps * factor_50 * Veff * delta_logm
 _lam_ps = np.where(_lam_ps > 0, _lam_ps, 1e-300)
@@ -408,7 +434,7 @@ plt.setp(ax_data.get_xticklabels(), visible=False)
 plt.setp(ax_res.get_xticklabels(), visible=False)
 for ax in [ax_data, ax_res, ax_nll]:
     ax.tick_params(labelsize=14)
-ax_data.legend(fontsize=10)
+ax_data.legend(fontsize=10, loc='lower left')
 fig.tight_layout()
 fig.subplots_adjust(hspace=0)
 
@@ -421,7 +447,7 @@ print("Saved HMF_functions_fiducial")
 # ══════════════════════════════════════════════════════════════════════════════
 # Part 4: Extrapolation — two panels matching Fig 4 HMF row
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n=== Plot 4: Extrapolation HMF fiducial (2 panels) ===")
+print("\n=== Plot 4: Extrapolation HMF trimmed (2 panels) ===")
 
 # --- Left panel: phi vs logM ---
 # Evaluate in M_sun coords for sigma/factor lookup, then shift for h^-1 M_sun display
@@ -437,7 +463,7 @@ logM_50_display = logM_50  # already converted in load_hmf_data
 # --- Right panel: f(sigma) vs sigma ---
 sigma_eval_fine = np.geomspace(0.01, 20, 5000)
 
-# Fiducial data in sigma space
+# Trimmed data in sigma space
 phi_data = 10**y_50  # y_50 = log10(phi)
 f_data_sigma = phi_data / factor_50
 y_data_sigma = np.log10(f_data_sigma)
@@ -446,7 +472,7 @@ fig, (ax_logM, ax_sigma) = plt.subplots(1, 2, figsize=(14, 5.5))
 
 # ---- Left: phi vs logM ----
 ax_logM.errorbar(logM_50_display, y_50, yerr=y_err_50, fmt='x', color='black',
-                 ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (fiducial)')
+                 ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (trimmed)')
 ax_logM.axvspan(logM_50_display.min(), logM_50_display.max(), color='grey', alpha=0.08, zorder=0)
 
 for idx, (func, label) in enumerate(top4_funcs):
@@ -458,7 +484,7 @@ for idx, (func, label) in enumerate(top4_funcs):
     logy = np.where(phi > 0, np.log10(phi), -300.0)
     ax_logM.plot(logM_eval_display, logy, color=ESR_COLOURS[idx], lw=1.4, label=label, zorder=5)
 
-for name in ['P.Sch.', 'War.', 'Tin.']:
+for name in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
     f_lit = eval_lit(name, sigma_eval_logM)
     if f_lit is None: continue
     phi = f_lit * factor_eval_logM
@@ -471,7 +497,7 @@ ax_logM.set_ylabel(r'$\log\!\left(\phi\,/\,\mathrm{Mpc^{-3}\,dex^{-1}}\right)$',
 ax_logM.set_xlim(7.8, 16.8)
 ax_logM.set_ylim(-30, 2)
 ax_logM.tick_params(labelsize=10)
-ax_logM.text(0.05, 0.95, 'HMF (fiducial)', transform=ax_logM.transAxes,
+ax_logM.text(0.05, 0.95, 'HMF (trimmed)', transform=ax_logM.transAxes,
              fontsize=13, va='top', ha='left', fontweight='bold')
 
 # Inset for logM panel
@@ -490,7 +516,7 @@ for idx, (func, label) in enumerate(top4_funcs):
     phi = f_vals * factor_eval_logM
     logy = np.where(phi > 0, np.log10(phi), -300.0)
     inset_logM.plot(logM_eval_display[mask_e], logy[mask_e], color=ESR_COLOURS[idx], lw=1.2, zorder=5)
-for name in ['P.Sch.', 'War.', 'Tin.']:
+for name in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
     f_lit = eval_lit(name, sigma_eval_logM)
     if f_lit is None: continue
     phi = f_lit * factor_eval_logM
@@ -507,7 +533,7 @@ for line in connectors:
 
 # ---- Right: f(sigma) vs sigma ----
 ax_sigma.errorbar(sigma_50, y_data_sigma, yerr=y_err_50, fmt='x', color='black',
-                  ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (fiducial)')
+                  ms=5, elinewidth=0.7, capsize=0, zorder=10, label='Data (trimmed)')
 ax_sigma.axvspan(sigma_50.min(), sigma_50.max(), color='grey', alpha=0.08, zorder=0)
 
 for idx, (func, label) in enumerate(top4_funcs):
@@ -518,7 +544,7 @@ for idx, (func, label) in enumerate(top4_funcs):
     logy = np.where(f_vals > 0, np.log10(f_vals), -300.0)
     ax_sigma.plot(sigma_eval_fine, logy, color=ESR_COLOURS[idx], lw=1.4, label=label, zorder=5)
 
-for name in ['P.Sch.', 'War.', 'Tin.']:
+for name in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
     f_lit = eval_lit(name, sigma_eval_fine)
     if f_lit is None: continue
     logy = np.where(f_lit > 0, np.log10(f_lit), -300.0)
@@ -532,7 +558,7 @@ ax_sigma.yaxis.tick_right()
 ax_sigma.set_xlim(0, 8)
 ax_sigma.set_ylim(-7, 0.5)
 ax_sigma.tick_params(labelsize=10)
-ax_sigma.text(0.05, 0.95, r'HMF fiducial ($\sigma$)', transform=ax_sigma.transAxes,
+ax_sigma.text(0.05, 0.95, r'HMF trimmed ($\sigma$)', transform=ax_sigma.transAxes,
               fontsize=13, va='top', ha='left', fontweight='bold')
 
 # Legend across both panels
@@ -548,7 +574,7 @@ fig.legend(handles, labels, loc='upper center', ncol=len(labels), fontsize=10,
 fig.tight_layout(w_pad=0)
 
 plt.savefig('Plots/extrapolation_HMF_fiducial.png', dpi=150, bbox_inches='tight')
-plt.savefig('Final_Plots/extrapolation_HMF_fiducial.pdf', dpi=200, bbox_inches='tight')
+plt.savefig('Plots/extrapolation_HMF_fiducial.pdf', dpi=200, bbox_inches='tight')
 plt.close()
 print("Saved extrapolation_HMF_fiducial")
 

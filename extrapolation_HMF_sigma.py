@@ -31,14 +31,23 @@ def eval_fcn(fcn_str, x):
     return np.where(np.isfinite(y), y, np.nan)
 
 
-def plot_hmf_sigma(ax):
-    """Plot HMF extrapolation in sigma-space on the given axes."""
-    _, counts, _, _, _ = np.loadtxt('data/hmf_files/hmf_50.dat', dtype=float, unpack=True)
+def plot_hmf_sigma(ax, variant='extended'):
+    """Plot HMF extrapolation in sigma-space on the given axes.
+
+    fiducial = 16 bins (drops the 2 lowest-mass bins); extended = full 18 bins.
+    """
+    if variant == 'fiducial':
+        counts_file, skip = 'hmf_50_trimmed_new.txt', 2
+        ff_file = 'hmf_50_final_functions_fiducial.txt'
+    else:
+        counts_file, skip = 'hmf_50_new.txt', 0
+        ff_file = 'hmf_50_final_functions_extended.txt'
+    _, counts, _, _, _ = np.loadtxt(counts_file, dtype=float, unpack=True)
     logM, sigma, factor = np.loadtxt(
-        'data/mass_variance_multiplier.txt', dtype=float, unpack=True)
+        'mass_variance_multiplier.txt', dtype=float, unpack=True)
     n = len(counts)
-    sigma_data = sigma[:n]
-    factor_data = factor[:n]
+    sigma_data = sigma[skip:skip + n]
+    factor_data = factor[skip:skip + n]
     Veff = 1e9 / 0.6711**3
     delta_logm = 0.2
     phi_data = counts / (Veff * delta_logm)
@@ -47,13 +56,16 @@ def plot_hmf_sigma(ax):
     y_err = 1 / (np.log(10) * np.sqrt(counts))
 
     source, comp, DL, NLL, plot_fcn, blank_fcn = np.loadtxt(
-        'hmf_50_final_functions.txt', dtype=str, delimiter=';', unpack=True)
+        ff_file, dtype=str, delimiter=';', unpack=True)
     DL = DL.astype(float)
 
     ESR_COLOURS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
-    LIT_COLOURS = {'P.Sch.': '#17becf', 'War.': '#bcbd22', 'Tin.': '#e377c2'}
-    LIT_STYLES  = {'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2))}
-    LIT_LABELS  = {'P.Sch.': 'Press-Schechter', 'War.': 'Warren', 'Tin.': 'Tinker'}
+    LIT_COLOURS = {'P.Sch.': '#17becf', 'War.': '#DAA520', 'Tin.': '#e377c2',
+                    'S-T.': '#A0522D', 'Jen.': '#006400'}
+    LIT_STYLES  = {'P.Sch.': '--', 'War.': '-.', 'Tin.': (0, (2, 2)),
+                    'S-T.': (0, (4, 1)), 'Jen.': (0, (3, 1, 1, 1))}
+    LIT_LABELS  = {'P.Sch.': 'Press-Schechter', 'War.': 'Warren', 'Tin.': 'Tinker',
+                    'S-T.': 'Sheth-Tormen', 'Jen.': 'Jenkins'}
 
     sigma_eval = np.geomspace(0.01, 20, 5000)
 
@@ -83,7 +95,7 @@ def plot_hmf_sigma(ax):
                 label='ESR rank {}'.format(rank + 1), zorder=5)
 
     # Literature functions
-    for key in ['P.Sch.', 'War.', 'Tin.']:
+    for key in ['P.Sch.', 'War.', 'Tin.', 'S-T.', 'Jen.']:
         idxs = np.where(np.array([s == key for s in source]))[0]
         if len(idxs):
             idx = idxs[0]
