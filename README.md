@@ -154,7 +154,9 @@ The analysis proceeds in several stages. Below they are grouped by function.
 | `refit_pf_extended.py` | Current extended-range refit of the v2 fiducial candidate pool |
 | `fit_literature_all_sims.py` | Fit Press-Schechter / Warren / Tinker to all 100 Quijote sims |
 | `fit_lit_st_jenkins.py` | Fit Sheth-Tormen / Jenkins on the fiducial HMF range |
-| `fit_lit_st_jenkins_extended.py` | Fit Sheth-Tormen / Jenkins on the extended HMF range |
+| `fit_lit_st_jenkins_extended.py` | Fit Sheth-Tormen / Jenkins on the extended HMF range (split-fit helper; superseded for the combined values by `refit_literature_extended.py`) |
+| `refit_literature.py` | Consolidated fiducial literature refit — all five HMF forms (P-Sch/Warren/Tinker/S-T/Jenkins) on equal footing with the ESR refit (Warren/Tinker held in their physical basin); writes `literature_refit_combined.txt`, the source of Table 3's literature rows |
+| `refit_literature_extended.py` | Same consolidated method on the extended range; writes `literature_refit_extended.txt`, the source of Table B1's literature rows |
 | `build_final_functions.py` | Assemble `*_final_functions.txt` |
 | `build_searchcomp.py` | Function → search-complexity mapping |
 | `build_hmf_table.py` | Rebuild the current fiducial HMF Table 3 from `pf_refit_combined.txt` |
@@ -212,7 +214,8 @@ Results files written by these scripts: `fisher_det_results.txt`,
 | `extrapolation_plotter.py` | Functions extrapolated beyond data range |
 | `extrapolation_HMF_sigma.py` | HMF extrapolation in σ-space (helper) |
 | `plot_schechter_like_variants.py` | Schechter-like LF/SMF Appendix A table data + plots |
-| `histogram_and_stacked_plots.py` | Ranking histogram + stacked bar chart |
+| `make_stacked_merged.py` | Top-5 rank stacked bar charts — Fig. 6 (fiducial) and Fig. B4 (extended); merges algebraically-equivalent representations and labels them as in Tables 3 / B1 |
+| `histogram_and_stacked_plots.py` | Ranking histogram (its stacked-bar output is superseded by `make_stacked_merged.py`) |
 | `veff_plotter.py` | Effective survey volume vs L/M |
 
 All plot outputs are saved to `Final_Plots/` (the analysis scripts also
@@ -294,6 +297,8 @@ Produced by the fitting scripts and consumed by plotting/analysis scripts:
 | `literature_fits_all_sims.txt` | `fit_literature_all_sims.py --extended` | Per-sim literature fits (full range) |
 | `literature_combined_DL.txt` | `fit_literature_all_sims.py --extended` | Combined literature DL (full range) |
 | `literature_st_jenkins_extended.txt` | `fit_lit_st_jenkins_extended.py` | Extended Sheth-Tormen/Jenkins combined DL values |
+| `literature_refit_combined.txt` | `refit_literature.py` | Consolidated fiducial literature combined DL (Table 3 literature rows; consumed by `build_hmf_table.py`) |
+| `literature_refit_extended.txt` | `refit_literature_extended.py` | Consolidated extended literature combined DL (Table B1 literature rows) |
 | `ordered_gold.txt` | `sample_top_200.py step3` | Rank tally (full range) |
 | `ordered_gold_fiducial.txt` | `fiducial_checks_and_plots.py` | Rank tally (restricted range) |
 | `all_paper_fitting_data.txt` | `fit_all.py` (paper mode) | Literature fits per dataset |
@@ -373,11 +378,12 @@ A typical end-to-end workflow:
    # Stage 3: literature fits and paper-facing tables/figures.
    python3 fit_literature_all_sims.py
    python3 fit_lit_st_jenkins.py
+   python3 refit_literature.py                  # -> literature_refit_combined.txt (Table 3 literature, equal-footing)
    python3 build_final_functions.py hmf_50 --combined hmf_combined_DL_fiducial.txt \
        --esr-dir hmf_fiducial_50_data --outfile hmf_50_final_functions_fiducial.txt
    python3 build_searchcomp.py                 # -> hmf_fiducial_searchcomp.txt
    python3 build_hmf_table.py                   # current Table 3 reconstruction
-   python3 fiducial_checks_and_plots.py         # Figs 5, 6 + physicality checks
+   python3 fiducial_checks_and_plots.py         # Fig 5 + physicality checks (Fig 6 now via make_stacked_merged.py, step 7b)
    python3 find_PS_like_functions.py           # PS-like asymptotic audit
 
 7. Other analysis and plots
@@ -387,7 +393,7 @@ A typical end-to-end workflow:
    python3 Pareto_plotter.py
    python3 extrapolation_plotter.py
    python3 veff_plotter.py
-   python3 histogram_and_stacked_plots.py      # or sample_top_200.py step3
+   python3 histogram_and_stacked_plots.py      # ranking histogram (stacked-rank charts via make_stacked_merged.py, step 7b)
 
 7a. Schechter-like LF/SMF functions — Appendix A of the paper
    # Requires LF/SMF ESR outputs up to complexity 10, paper/literature fits,
@@ -400,10 +406,11 @@ A typical end-to-end workflow:
 7b. Full-range (extended) HMF — Appendix B of the paper
    python3 compute_combined_DL.py --extended
    python3 fit_literature_all_sims.py --extended
-   python3 fit_lit_st_jenkins_extended.py
+   python3 refit_literature_extended.py        # -> literature_refit_extended.txt (Table B1 literature, equal-footing)
    python3 build_searchcomp.py --extended      # -> hmf_func_gencomp.txt
    python3 refit_pf_extended.py                # -> pf_refit_combined_extended.txt
    python3 generate_extended_appendix.py       # Appendix B figures
+   python3 make_stacked_merged.py              # Figs 6 + B4 stacked-rank charts (needs the fiducial + extended refits)
    python3 find_PS_like_functions.py --extended
 
 8. Covariance, Fisher and propagated-impact diagnostics — §4.5, §5
